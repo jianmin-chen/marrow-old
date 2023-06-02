@@ -4,6 +4,7 @@
 #define _BSD_SOURCE
 #define _GNU_SOURCE
 
+#include "./config.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -20,8 +21,6 @@
 /*** defines ***/
 
 #define MARROW_VERSION "0.0.1"
-#define MARROW_TAB_STOP 4
-#define MARROW_QUIT_TIMES 2
 
 #define CTRL_KEY(k) ((k)&0x1f)
 

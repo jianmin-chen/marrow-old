@@ -1,0 +1,2 @@
+#define MARROW_TAB_STOP 4
+#define MARROW_QUIT_TIMES 2
