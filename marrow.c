@@ -1089,6 +1089,11 @@ int main(int argc, char *argv[]) {
     enableRawMode();
     initEditor();
     if (argc >= 2) {
+        if (access(argv[1], F_OK) != 0) {
+            // Create file
+            FILE *fptr = fopen(argv[1], "w");
+            fclose(fptr);
+        }
         editorOpen(argv[1]);
     }
 
