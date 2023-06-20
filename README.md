@@ -1,14 +1,24 @@
 ## About
 
-Text editor written from scratch using the [Build Your Own Text Editor](https://viewsourcecode.org/snaptoken/kilo/) tutorial. Wanted to make it my own (in fact, this was written with `marrow`!), so I've added/am adding some extra, opinionated features:
+Text editor written from scratch using the [Build Your Own Text Editor](https://viewsourcecode.org/snaptoken/kilo/) tutorial. Wanted to make it my own (in fact, this was written with `marrow`!), so I've added/am adding some extra, opinionated features.
 
-* Configuration file in `config.h`, with options for features like line numbers, Git gutters, and WakaTime integration
+## Design decisions
+
+Over the next couple months, I'll be working on adding the following, which are obviously all quite opinionated:
+
+* Different modes like Vim. Specifically, mostly normal and edit mode for the moment.
+* Configuration file in `config.h`, with options for features like line numbers, Git gutters, and WakaTime integration (all things I use in my Vim config) 
 * Syntax highlighting for other programming languages besides C. The way the guide does syntax highlighting is quite frankly horrendous, but I can't think of a quicker way to do it without generating tokens for each language to categorize each term. I'll start by modularizing the syntax highlighting code and then adding a couple of languages that I use often, like Python and JavaScript.
 * A tree viewer. This should be relatively easy using `dirent.h` (not supported in Windows though) and adapting the code currently being used to track keystrokes to track moving through the file tree.
 * Tab system. I already use iTerm so I suppose I could just use `Command` + `number` to open a new tab, but I think it would be cool to have a tab system directly in Marrow where I can switch between editor views to edit different files. Split view can come later, if I'm so inclined.
 * Terminal emulator? Not sure if I'm using the correct term. Vim uses `libvterm`, so I want to do a little more research into that.
+* Command system with fuzzy search in a file
 
-These are all features I use in Vim/VSCode on a daily basis and thought would be useful to add on.
+These are all features I use in Vim/VSCode on a daily basis and thought would be useful to add on. 
+
+Other features I might add in the future: 
+
+* Reverse highlighting on copy.
 
 ## Compatibility
 
