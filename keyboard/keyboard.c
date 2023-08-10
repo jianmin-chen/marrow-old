@@ -8,6 +8,7 @@ enum keys {
     ESC=27,
     DOLLAR=36,
     ZERO=48,
+    COLON=58,
     H=104,
     I=105,
     J=106,

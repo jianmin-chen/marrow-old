@@ -122,7 +122,7 @@ void initWorkspace(void) {
     if (getWindowSize(&global.rows, &global.cols) == -1)
         die("getWindowSize");
 
-    global.rows--;
+    global.rows -= 2;
 }
 
 void render(void) {
@@ -170,12 +170,16 @@ void render(void) {
 void process(int key) {
     switch (key) {
     case CTRL_KEY('q'):
+        write(STDOUT_FILENO, "\x1b[2J", 4);
+        write(STDOUT_FILENO, "\x1b[H", 3);
         exit(0);
     default:
         if (global.mode == NORMAL) {
-            global.mode = tabNormalMode(&global.tabs[global.activetab], key);
+            global.mode =
+                tabNormalMode(&global.tabs[global.activetab], key, render);
         } else if (global.mode == EDIT) {
-            global.mode = tabEditMode(&global.tabs[global.activetab], key);
+            global.mode =
+                tabEditMode(&global.tabs[global.activetab], key, render);
         }
     }
 }

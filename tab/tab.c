@@ -3,6 +3,8 @@
 #include "../error/error.h"
 #include "../keyboard/keyboard.h"
 #include "../modes.h"
+#include <ctype.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -198,6 +200,8 @@ void tabDelChar(struct tab *t) {
     }
 }
 
+/*** file operations ***/
+
 struct tab tabOpen(char *filename, int screenrows, int screencols) {
     struct tab new;
     new.filename = strdup(filename);
@@ -211,6 +215,8 @@ struct tab tabOpen(char *filename, int screenrows, int screencols) {
     new.screenrows = screenrows;
     new.screencols = screencols;
     new.dirty = 0;
+    new.statusmsg[0] = '\0';
+    new.statusmsg_time = 0;
 
     if (access(filename, F_OK) != 0) {
         // Create file
@@ -235,6 +241,61 @@ struct tab tabOpen(char *filename, int screenrows, int screencols) {
     free(line);
     fclose(fp);
     return new;
+}
+
+void tabSave(struct tab *t) {}
+
+/*** status operations ***/
+
+void tabSetStatusMessage(struct tab *t, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(t->statusmsg, sizeof(t->statusmsg), fmt, ap);
+    va_end(ap);
+    t->statusmsg_time = time(NULL);
+}
+
+/*** prompt operations ***/
+
+char *tabPrompt(struct tab *t, char *prompt, void (*render)(void),
+                void (*callback)(struct tab *t, char *, int)) {
+    size_t bufsize = 128;
+    char *buf = malloc(bufsize);
+
+    size_t buflen = 0;
+    buf[0] = '\0';
+
+    while (1) {
+        snprintf(t->statusmsg, sizeof(t->statusmsg), "%s%s", prompt, buf);
+        t->statusmsg_time = time(NULL);
+        render();
+
+        int c = editorReadKey();
+        if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
+            if (buflen != 0)
+                buf[--buflen] = '\0';
+        } else if (c == '\x1b') {
+            tabSetStatusMessage(t, "");
+            if (callback)
+                callback(t, buf, c);
+            free(buf);
+            return NULL;
+        } else if (c == '\r') {
+            if (buflen != 0) {
+                tabSetStatusMessage(t, "");
+                if (callback)
+                    callback(t, buf, c);
+                return buf;
+            }
+        } else if (!iscntrl(c) && c < 128) {
+            if (buflen == bufsize - 1) {
+                bufsize *= 2;
+                buf = realloc(buf, bufsize);
+            }
+            buf[buflen++] = c;
+            buf[buflen] = '\0';
+        }
+    }
 }
 
 void tabScroll(struct tab *t) {
@@ -275,6 +336,32 @@ void drawTab(struct tab *t, struct abuf *ab) {
         abAppend(ab, "\x1b[K", 3);
         abAppend(ab, "\r\n", 2);
     }
+
+    // Draw status bar
+    abAppend(ab, "\x1b[7m", 4);
+    char status[80];
+    int len = snprintf(status, sizeof(status), "%.20s - %d lines %s",
+                       t->filename ? t->filename : "[No Name]", t->numrows,
+                       t->dirty ? "(modified)" : "");
+
+    if (len > t->screencols)
+        len = t->screencols;
+    abAppend(ab, status, len);
+    while (len < t->screencols) {
+        abAppend(ab, " ", 1);
+        len++;
+    }
+
+    abAppend(ab, "\x1b[m", 3);
+    abAppend(ab, "\r\n", 2);
+
+    // Draw message bar
+    abAppend(ab, "\x1b[K", 3);
+    int msglen = strlen(t->statusmsg);
+    if (msglen > t->screencols)
+        msglen = t->screencols;
+    if (msglen && time(NULL) - t->statusmsg_time < 5)
+        abAppend(ab, t->statusmsg, msglen);
 
     char buf[32];
     snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (t->cy - t->rowoff) + 1,
@@ -324,7 +411,22 @@ void tabMoveCursor(struct tab *t, int key) {
         t->cx = rowlen;
 }
 
-int tabNormalMode(struct tab *t, int key) {
+void tabJumpTo(struct tab *t, char *buf, int key) {
+    // Convert buf to int
+    for (unsigned long i = 0; i < strlen(buf); i++) {
+        if (!isdigit(buf[i]))
+            return;
+    }
+
+    int line = atoi(buf);
+    if (line == 0)
+        line = 1;
+    else if (line > t->numrows)
+        line = t->numrows;
+    t->cy = line - 1;
+}
+
+int tabNormalMode(struct tab *t, int key, void (*render)(void)) {
     switch (key) {
     case DOLLAR:
         t->cx = t->rows[t->cy].size;
@@ -349,6 +451,9 @@ int tabNormalMode(struct tab *t, int key) {
                 t->cy = t->numrows;
         }
     } break;
+    case COLON:
+        tabPrompt(t, ":", render, tabJumpTo);
+        break;
     case ARROW_UP:
     case ARROW_DOWN:
     case ARROW_LEFT:
@@ -366,7 +471,7 @@ int tabNormalMode(struct tab *t, int key) {
     return NORMAL;
 }
 
-int tabEditMode(struct tab *t, int key) {
+int tabEditMode(struct tab *t, int key, void (*render)(void)) {
     switch (key) {
     case ESC:
         return NORMAL;

@@ -39,11 +39,16 @@ void tabFreeRow(struct row *r);
 
 struct tab tabOpen(char *filename, int screenrows, int screencols);
 
+void tabSetStatusMessage(struct tab *t, const char *fmt, ...);
+
+char *tabPrompt(struct tab *t, char *prompt, void (*render)(void),
+                void (*callback)(char *, int));
+
 void drawTab(struct tab *t, struct abuf *ab);
 
-int tabNormalMode(struct tab *t, int key);
+int tabNormalMode(struct tab *t, int key, void (*render)(void));
 
-int tabEditMode(struct tab *t, int key);
+int tabEditMode(struct tab *t, int key, void (*render)(void));
 
 #endif
 

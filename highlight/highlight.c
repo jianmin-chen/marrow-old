@@ -39,11 +39,64 @@ char *JS_keywords = {};
 char *MD_extensions[] = {};
 char *MD_keywords = {};
 
-char *PY_extensions[] = {};
-char *PY_keywords = {};
+char *PY_extensions[] = {".py", NULL};
+char *PY_keywords = {"await",
+                     "else",
+                     "import",
+                     "pass",
+                     "break",
+                     "except",
+                     "in",
+                     "raise",
+                     "True",
+                     "class",
+                     "finally",
+                     "is",
+                     "return",
+                     "and",
+                     "continue",
+                     "for",
+                     "lambda",
+                     "try",
+                     "as",
+                     "def",
+                     "from",
+                     "nonlocal",
+                     "while",
+                     "assert",
+                     "del",
+                     "global",
+                     "not",
+                     "with",
+                     "async",
+                     "elif",
+                     "if",
+                     "or",
+                     "yield"
+                     "False|",
+                     "None|",
+                     "str|",
+                     "int|",
+                     "float|",
+                     "complex|",
+                     "list|",
+                     "tuple|",
+                     "range|",
+                     "dict|",
+                     "set|",
+                     "frozenset|",
+                     "bool|",
+                     "bytes|",
+                     "bytearray|",
+                     "memoryview|",
+                     NULL};
 
-char *RUST_extensions[] = {};
-char *RUST_keywords = {};
+char *RUST_extensions[] = {".rs", NULL};
+char *RUST_keywords = {
+    "as",    "use",  "extern_crate", "break",  "const", "continue",
+    "crate", "else", "if",           "if let", "enum",  "extern",
+    "fn",    "for",  "impl",         "in",     "let",   "loop",
+    "match", "mod",  "move",         "false|", NULL};
 
 struct syntax HLDB[] = {
     {"arson", ARSON_extensions, ARSON_keywords, "#", NULL, NULL,
