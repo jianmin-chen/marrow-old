@@ -97,3 +97,8 @@ int editorReadKey(void) {
     }
 }
 
+
+typedef struct {
+    int *keys;
+    int strokes;
+} keystrokes;
