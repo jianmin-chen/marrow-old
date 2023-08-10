@@ -1,7 +1,10 @@
 #ifndef TAB_H
 #define TAB_H
 
+#include "../highlight/highlight.h"
+#include "../keyboard/keyboard.h"
 #include "../libs/buffer.h"
+#include "../status/status.h"
 #include <string.h>
 #include <time.h>
 
@@ -23,6 +26,7 @@ typedef struct tab {
     row *rows;
     status *bar;
     syntax *syn;
+    keypress *keystrokes;
     int cx, cy;
     int rx;
     int rowoff;
@@ -34,7 +38,7 @@ typedef struct tab {
 
 void tabScroll(tab *t);
 
-void tabUpdateRow(row *r);
+void tabUpdateRow(tab *t, row *r);
 
 void tabInsertRow(tab t, int at, char *s, size_t len);
 
@@ -42,7 +46,7 @@ void tabFreeRow(row *r);
 
 tab tabOpen(char *filename, int screenrows, int screencols, status *s);
 
-void drawTab(tab *t, abuf *ab, colors theme);
+void drawTab(tab *t, abuf *ab);
 
 int tabNormalMode(tab *t, int key, void (*render)(void));
 

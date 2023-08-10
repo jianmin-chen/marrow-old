@@ -36,6 +36,7 @@ typedef struct tab {
     row *rows;
     status *bar;
     syntax *syn;
+    keypress *keystrokes;
     int cx, cy;
     int rx;
     int rowoff;
@@ -47,7 +48,7 @@ typedef struct tab {
 
 /*** prototypes ***/
 
-void tabUpdateRow(row *r);
+void tabUpdateRow(tab *t, row *r);
 void dirty(tab *t);
 void tabBackup(tab *t);
 char *tabPrompt(tab *t, char *prompt, void (*render)(void),
@@ -79,45 +80,156 @@ int rowRxToCx(row *r, int rx) {
     return cx;
 }
 
-void tabRowInsertChar(row *r, int at, int c) {
+void tabRowInsertChar(tab *t, row *r, int at, int c) {
     if (at < 0 || at > r->size)
         at = r->size;
     r->chars = realloc(r->chars, r->size + 2);
     memmove(&r->chars[at + 1], &r->chars[at], r->size - at * 1);
     r->size++;
     r->chars[at] = c;
-    tabUpdateRow(r);
+    tabUpdateRow(t, r);
 }
 
-void tabRowDelChar(row *r, int at) {
+void tabRowDelChar(tab *t, row *r, int at) {
     if (at < 0 || at >= r->size)
         return;
     memmove(&r->chars[at], &r->chars[at + 1], r->size - at);
     r->size--;
-    tabUpdateRow(r);
+    tabUpdateRow(t, r);
 }
 
-void tabRowAppendString(row *r, char *s, size_t len) {
+void tabRowAppendString(tab *t, row *r, char *s, size_t len) {
     r->chars = realloc(r->chars, r->size + len + 1);
     memcpy(&r->chars[r->size], s, len);
     r->size += len;
     r->chars[r->size] = '\0';
-    tabUpdateRow(r);
+    tabUpdateRow(t, r);
 }
 
 /*** syntax related row operations ***/
 
-void updateSyntax(tab *t, row *r) {
+void tabUpdateSyntax(tab *t, row *r) {
+    if (!t->syn) return;
     r->hl = realloc(r->hl, r->rsize);
     memset(r->hl, HL_NORMAL, r->rsize);
 
-    if (t->syn == NULL)
-        return;
+    char **keywords = t->syn->keywords;
+
+    char *scs = t->syn->singlelineCommentStart;
+    char *mcs = t->syn->multilineCommentStart;
+    char *mce = t->syn->multilineCommentEnd;
+
+    int scs_len = scs ? strlen(scs) : 0;
+    int mcs_len = mcs ? strlen(mcs) : 0;
+    int mce_len = mce ? strlen(mce) : 0;
+
+    int prev_sep = 1;
+    int in_string = 0;
+    int in_comment = (r->idx > 0 && t->rows[r->idx - 1].hl_open_comment);
+
+    int i = 0;
+    while (i < r->rsize) {
+        char c = r->render[i];
+        unsigned char prev_hl = (i > 0) ? r->hl[i - 1] : HL_NORMAL;
+
+        /* Comments */
+
+        if (scs_len && !in_string && !in_comment) {
+            if (!strncmp(&r->render[i], scs, scs_len)) {
+                memset(&r->hl[i], HL_COMMENT, r->rsize - i);
+                break;
+            }
+        }
+
+        if (mcs_len && mce_len && !in_string) {
+            if (in_comment) {
+                r->hl[i] = HL_MLCOMMENT;
+                if (!strncmp(&r->render[i], mce, mce_len)) {
+                    memset(&r->hl[i], HL_MLCOMMENT, mce_len);
+                    i += mce_len;
+                    in_comment = 0;
+                    prev_sep = 1;
+                    continue;
+                }
+            } else if (!strncmp(&r->render[i], mcs, mcs_len)) {
+                memset(&r->hl[i], HL_MLCOMMENT, mcs_len);
+                i += mcs_len;
+                in_comment = 1;
+                continue;
+            }
+        }
+
+        /* Strings */
+
+        if (t->syn->flags & HL_HIGHLIGHT_STRINGS) {
+            if (in_string) {
+                r->hl[i] = HL_STRING;
+                if (c == '\\' && i + 1 < r->rsize) {
+                    r->hl[i + 1] = HL_STRING;
+                    i += 2;
+                    continue;
+                }
+                if (c == in_string)
+                    in_string = 0;
+                i++;
+                prev_sep = 1;
+                continue;
+            } else if (c == '"' || c == '\'') {
+                in_string = c;
+                r->hl[i] = HL_STRING;
+                i++;
+                continue;
+            }
+        }
+
+        /* Numbers */
+
+        if (t->syn->flags & HL_HIGHLIGHT_NUMBERS) {
+            if (isdigit(c) && (prev_sep || prev_hl == HL_NUMBER)) {
+                r->hl[i] = HL_NUMBER;
+                i++;
+                prev_sep = 0;
+                continue;
+            }
+        }
+
+        /* Keywords */
+
+        if (prev_sep) {
+            int j;
+            for (j = 0; keywords[j]; j++) {
+                int klen = strlen(keywords[j]);
+                int type = keywords[j][klen - 1] == '|';
+                if (type)
+                    klen--;
+
+                if (!strncmp(&r->render[i], keywords[j], klen) &&
+                    is_separator(r->render[i + klen])) {
+                    memset(&r->hl[i], type ? HL_TYPE : HL_KEYWORD, klen);
+                    i += klen;
+                    break;
+                }
+            }
+            if (keywords[j] != NULL) {
+                prev_sep = 0;
+                continue;
+            }
+        }
+
+        prev_sep = is_separator(c);
+        i++;
+    }
+
+    int changed = (r->hl_open_comment != in_comment);
+    r->hl_open_comment = in_comment;
+    if (changed && r->idx + 1 < t->numrows) {
+        tabUpdateSyntax(t, &t->rows[r->idx + 1]);
+    }
 }
 
 /*** tab operations ***/
 
-void tabUpdateRow(row *r) {
+void tabUpdateRow(tab *t, row *r) {
     int tabs = 0;
     int j;
     for (j = 0; j < r->size; j++)
@@ -139,6 +251,7 @@ void tabUpdateRow(row *r) {
     }
     r->render[idx] = '\0';
     r->rsize = idx;
+    tabUpdateSyntax(t, r);
 }
 
 void tabInsertRow(tab *t, int at, char *s, size_t len) {
@@ -153,24 +266,17 @@ void tabInsertRow(tab *t, int at, char *s, size_t len) {
 
     t->rows[at].idx = at;
 
-    int tabs = 0;
-    if (at != 0) {
-        // Remain on same tab length
-        int j;
-        for (j = 0; j < t->rows[at - 1].size; j++)
-            if (t->rows[at - 1].chars[j] == '\t')
-                tabs++;
-    }
-
-    t->rows[at].size = len + (tabs * MARROW_TAB_STOP);
-    t->rows[at].chars = malloc(len + (tabs * MARROW_TAB_STOP) + 1);
+    t->rows[at].size = len;
+    t->rows[at].chars = malloc(len + 1);
     memcpy(t->rows[at].chars, s, len);
     t->rows[at].chars[len] = '\0';
 
     t->rows[at].rsize = 0;
     t->rows[at].render = NULL;
+    t->rows[at].hl = NULL;
+    t->rows[at].hl_open_comment = 0;
 
-    tabUpdateRow(&t->rows[at]);
+    tabUpdateRow(t, &t->rows[at]);
 
     t->numrows++;
 }
@@ -201,7 +307,7 @@ void tabInsertNewline(tab *t) {
         r = &t->rows[t->cy];
         r->size = t->cx;
         r->chars[r->size] = '\0';
-        tabUpdateRow(r);
+        tabUpdateRow(t, r);
     }
     t->cy++;
     t->cx = 0;
@@ -211,7 +317,7 @@ void tabInsertChar(tab *t, int c) {
     if (t->cy == t->numrows) {
         tabInsertRow(t, t->numrows, "", 0);
     }
-    tabRowInsertChar(&t->rows[t->cy], t->cx, c);
+    tabRowInsertChar(t, &t->rows[t->cy], t->cx, c);
     t->cx++;
 }
 
@@ -221,11 +327,11 @@ void tabDelChar(tab *t) {
 
     row *r = &t->rows[t->cy];
     if (t->cx > 0) {
-        tabRowDelChar(r, t->cx - 1);
+        tabRowDelChar(t, r, t->cx - 1);
         t->cx--;
     } else {
         t->cx = t->rows[t->cy - 1].size;
-        tabRowAppendString(&t->rows[t->cy - 1], r->chars, r->size);
+        tabRowAppendString(t, &t->rows[t->cy - 1], r->chars, r->size);
         tabDelRow(t, t->cy);
         t->cy--;
     }
@@ -250,8 +356,8 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     strcat(new.swp, new.filename);
     strcat(new.swp, ".swp");
     */
-    new.syn = NULL;
-    selectSyntaxHighlight(filename, new.filetype, new.syn);
+    new.syn = selectSyntaxHighlight(new.filename, new.filetype);
+    new.keystrokes = NULL;
     new.numrows = 0;
     new.rows = NULL;
     new.bar = s;
@@ -341,28 +447,8 @@ void tabSave(tab *t) {
 }
 
 void tabBackup(tab *t) {
-    return;
     // ? I think we should backup the keypresses instead? So you can revert
     // ? keypresses but also backup at the same time
-    if (t->swp) {
-        // Save to swap file
-        int len;
-        char *buf = tabRowsToString(t, &len);
-
-        int fd = open(t->swp, O_RDWR | O_CREAT, 0644);
-        if (fd != -1) {
-            if (ftruncate(fd, len) != -1) {
-                if (write(fd, buf, len) == len) {
-                    close(fd);
-                    free(buf);
-                    return;
-                }
-            }
-        }
-        free(buf);
-        setStatusMessage(t->bar, "Can't backup! I/O error: %s",
-                         strerror(errno));
-    }
 }
 
 void tabScroll(tab *t) {
@@ -380,7 +466,7 @@ void tabScroll(tab *t) {
         t->coloff = t->rx - t->screencols + 1;
 }
 
-void drawTab(tab *t, abuf *ab, colors theme) {
+void drawTab(tab *t, abuf *ab) {
     tabScroll(t);
 
     int y;
@@ -388,12 +474,48 @@ void drawTab(tab *t, abuf *ab, colors theme) {
         int filerow = y + t->rowoff;
         if (filerow >= t->numrows) {
             abAppend(ab, "~", 1);
-        } else {
+        } else if (t->syn) {
+            // Syntax highlighting enabled
             int len = t->rows[filerow].rsize - t->coloff;
             if (len < 0)
                 len = 0;
             if (len > t->screencols)
                 len = t->screencols;
+            char *c = &t->rows[filerow].render[t->coloff];
+            unsigned char *hl = &t->rows[filerow].hl[t->coloff];
+            int current_color = -1;
+            int j;
+            for (j = 0; j < len; j++) {
+                if (iscntrl(c[j])) {
+                    // Control character, highlight differently
+                    char sym = (c[j] <= 26 ? '@' + c[j] : '?');
+                    abAppend(ab, "\x1b[7m", 4);
+                    abAppend(ab, &sym, 1);
+                    abAppend(ab, "\x1b[m", 3);
+                    if (current_color != -1) {
+                        char buf[16];
+                        int clen = snprintf(buf, sizeof(buf), "\x1b[%dm",
+                                            current_color);
+                        abAppend(ab, buf, clen);
+                    }
+                } else {
+                    int color = syntaxToColor(theme, hl[j]);
+                    if (color != current_color) {
+                        current_color = color;
+                        char buf[16];
+                        int clen =
+                            snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+                        abAppend(ab, buf, clen);
+                    }
+                    abAppend(ab, &c[j], 1);
+                }
+            }
+            abAppend(ab, "\x1b[39m", 5);
+        } else {
+            // No syntax highlighting
+            int len = t->rows[filerow].rsize - t->coloff;
+            if (len < 0) len = 0;
+            if (len > t->screencols) len = t->screencols;
             char *c = &t->rows[filerow].render[t->coloff];
             int j;
             for (j = 0; j < len; j++) {
@@ -701,7 +823,12 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
         return NORMAL;
     case CTRL_KEY('s'):
         tabSave(t);
-        break;
+        return EDIT;
+    }
+
+    addKeystroke(key, t->keystrokes);
+
+    switch (key) {
     case HOME_KEY:
         t->cx = 0;
         break;

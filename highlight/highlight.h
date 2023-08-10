@@ -33,11 +33,13 @@ enum highlight {
     HL_MATCH
 };
 
+extern colors *theme;
+
 int is_separator(int c);
 
-int syntaxToColor(colors theme, int hl);
+int syntaxToColor(colors *theme, int hl);
 
-void selectSyntaxHighlight(char *filename, char *filetype, syntax *s);
+syntax *selectSyntaxHighlight(char *filename, char *filetype);
 
 #endif
 

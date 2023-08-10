@@ -36,6 +36,12 @@ enum highlight {
     HL_MATCH
 };
 
+#ifdef MARROW_THEME
+#else
+colors DEFAULT_THEME = {-1, 37, 33, 32, 35, 31, 34, 36};
+colors *theme = &DEFAULT_THEME;
+#endif
+
 char *ARSON_extensions[] = {".ars", NULL};
 char *ARSON_keywords[] = {"burn", "for",  "through", "while", "prepmatch",
                           "if",   "else", "return",  "True|", "False|",
@@ -43,12 +49,12 @@ char *ARSON_keywords[] = {"burn", "for",  "through", "while", "prepmatch",
 
 char *C_extensions[] = {".c", ".h", ".cpp", NULL};
 char *C_keywords[] = {
-    "auto",      "break",  "case",   "const",   "continue", "default",
-    "do",        "else",   "extern", "for",     "goto",     "if",
-    "register",  "return", "sizeof", "static",  "switch",   "typedef",
-    "volatile",  "while",  "char|",  "double|", "enum|",    "float|",
-    "int|",      "long|",  "short|", "signed|", "struct|",  "union|",
-    "unsigned|", "void|",  NULL};
+    "#define",  "#include", "auto",      "break",  "case",   "const",
+    "continue", "default",  "do",        "else",   "extern", "for",
+    "goto",     "if",       "register",  "return", "sizeof", "static",
+    "switch",   "typedef",  "volatile",  "while",  "char|",  "double|",
+    "enum|",    "float|",   "int|",      "long|",  "short|", "signed|",
+    "struct|",  "union|",   "unsigned|", "void|",  NULL};
 
 char *CSS_extensions[] = {".css", ".scss", NULL};
 char *CSS_keywords[] = {"accent-color", "acos", "abs|"};
@@ -126,16 +132,16 @@ char *RUST_keywords[] = {
     "fn",    "for",  "impl",         "in",     "let",   "loop",
     "match", "mod",  "move",         "false|", NULL};
 
-syntax HLDB[] = {
-    {"arson", ARSON_extensions, ARSON_keywords, "#", NULL, NULL,
-     HL_NUMBERS | HL_STRINGS},
-    {"c", C_extensions, C_keywords, "//", "/*", "*/", HL_NUMBERS | HL_STRINGS},
-    {"js", JS_extensions, JS_keywords, "//", "/*", "*/",
-     HL_NUMBERS | HL_STRINGS},
-    {"py", PY_extensions, PY_keywords, "#", "\"\"\"", "\"\"\"",
-     HL_NUMBERS | HL_STRINGS},
-    {"rust", RUST_extensions, RUST_keywords, "//", "/*", "*/",
-     HL_NUMBERS | HL_STRINGS}};
+syntax HLDB[] = {{"arson", ARSON_extensions, ARSON_keywords, "#", NULL, NULL,
+                  HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+                 {"c", C_extensions, C_keywords, "//", "/*", "*/",
+                  HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+                 {"js", JS_extensions, JS_keywords, "//", "/*", "*/",
+                  HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+                 {"py", PY_extensions, PY_keywords, "#", "\"\"\"", "\"\"\"",
+                  HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+                 {"rust", RUST_extensions, RUST_keywords, "//", "/*", "*/",
+                  HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS}};
 
 #define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
 
@@ -145,45 +151,57 @@ int is_separator(int c) {
     return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];", c) != NULL;
 }
 
-int syntaxToColor(colors theme, int hl) {
+int syntaxToColor(colors *theme, int hl) {
     switch (hl) {
     case HL_COMMENT:
     case HL_MLCOMMENT:
-        return theme.comment;
+        return theme->comment;
     case HL_KEYWORD:
-        return theme.keyword;
+        return theme->keyword;
     case HL_TYPE:
-        return theme.type;
+        return theme->type;
     case HL_STRING:
-        return theme.string;
+        return theme->string;
     case HL_NUMBER:
-        return theme.number;
+        return theme->number;
     case HL_MATCH:
-        return theme.match;
+        return theme->match;
     default:
-        return theme.normal;
+        return theme->normal;
     }
 }
 
-void selectSyntaxHighlight(char *filename, char *filetype, syntax *s) {
+syntax *selectSyntaxHighlight(char *filename, char *filetype) {
     if (filename == NULL)
-        return;
+        return NULL;
+    
+    syntax *s = malloc(sizeof(syntax));
+    s->filetype = NULL;
+    s->filematch = NULL;
+    s->keywords = NULL;
+    s->singlelineCommentStart = NULL;
+    s->multilineCommentStart = NULL;
+    s->multilineCommentEnd = NULL;
+
+    s->filetype = filetype;
 
     char *ext = strrchr(filename, '.');
-    filetype = ext;
     for (unsigned int j = 0; j < HLDB_ENTRIES; j++) {
-        syntax *cmp = &HLDB[j];
+        // Go through each HLDB entry to check which one matches
+        syntax *curr = &HLDB[j];
         unsigned int i = 0;
-        while (cmp->filematch[i]) {
-            int is_ext = (cmp->filematch[i][0] == '.');
-            if ((is_ext && ext && !strcmp(ext, cmp->filematch[i])) ||
-                (!is_ext && strstr(filename, cmp->filematch[i]))) {
-                s = &cmp;
-                return;
+        while (curr->filematch[i]) {
+            int is_ext = (curr->filematch[i][0] == '.');
+            if ((is_ext && ext && !strcmp(ext, curr->filematch[i])) ||
+                (!is_ext && strstr(filename, curr->filematch[i]))) {
+                s = curr;
+                return s;
             }
             i++;
         }
     }
+
+    return s;
 }
 
 int loadTheme(void) { return -1; }

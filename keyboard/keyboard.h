@@ -4,17 +4,19 @@
 #define CTRL_KEY(k) ((k)&0x1f)
 
 enum keys {
-    ESC=27,
-    DOLLAR=36,
-    SLASH=47,
-    ZERO=48,
-    COLON=58,
-    H=104,
-    I=105,
-    J=106,
-    K=107,
-    L=108, 
-    W=119,
+    // Normal mode keys
+    ESC = 27,
+    DOLLAR = 36,
+    SLASH = 47,
+    ZERO = 48,
+    COLON = 58,
+    H = 104,
+    I = 105,
+    J = 106,
+    K = 107,
+    L = 108,
+    W = 119,
+    Z = 122,
     BACKSPACE = 127,
     ARROW_LEFT = 1000,
     ARROW_RIGHT,
@@ -28,6 +30,13 @@ enum keys {
 };
 
 int editorReadKey(void);
+
+typedef struct keypress {
+    int key;
+    struct keypress *next;
+} keypress;
+
+keypress *addKeystroke(int key, keypress *ptr);
 
 #endif
 

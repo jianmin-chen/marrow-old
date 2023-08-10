@@ -31,7 +31,6 @@ typedef struct workspaceConfig {
     int numtabs;
     tab *tabs;
     status bar;
-    colors theme;
     int rows;
     int cols;
     int keypress;
@@ -118,11 +117,6 @@ void initWorkspace(void) {
     global.activetab = -1;
     global.numtabs = 0;
     global.tabs = NULL;
-#ifdef MARROW_THEME
-#else
-    colors DEFAULT_THEME = {-1, 37, 33, 32, 35, 31, 34, 36};
-    global.theme = DEFAULT_THEME;
-#endif
     global.bar.statusmsg[0] = '\0';
     global.bar.statusmsg_time = 0;
     global.rows = 0;
@@ -170,7 +164,7 @@ void render(void) {
     } else {
         tab *activeTab = &global.tabs[global.activetab];
 
-        drawTab(activeTab, &ab, global.theme);
+        drawTab(activeTab, &ab);
 
         // Draw message bar (status bar, whatever you want to call it)
         drawStatusBar(&global.bar, &ab, global.cols);
@@ -206,11 +200,7 @@ void process(int key) {
     }
 }
 
-void update(void) {
-    if (global.mode == EDIT) {
-        // Save the current tab
-    }
-}
+void update(void) {}
 
 int main(int argc, char *argv[]) {
     enableRawMode();
