@@ -2,11 +2,14 @@
 #include "../config.h"
 #include "../error/error.h"
 #include "../keyboard/keyboard.h"
+#include "../modes.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+/*** defines ***/
 
 struct row {
     int idx;
@@ -18,6 +21,7 @@ struct row {
 
 struct tab {
     char *filename;
+    char *swp;
     int numrows;
     struct row *rows;
     int cx, cy;
@@ -30,6 +34,10 @@ struct tab {
     char statusmsg[80];
     time_t statusmsg_time;
 } tab;
+
+/*** prototypes ***/
+
+void tabUpdateRow(struct row *r);
 
 /*** row operations ***/
 
@@ -56,6 +64,34 @@ int rowRxToCx(struct row *r, int rx) {
     }
     return cx;
 }
+
+void tabRowInsertChar(struct row *r, int at, int c) {
+    if (at < 0 || at > r->size)
+        at = r->size;
+    r->chars = realloc(r->chars, r->size + 2);
+    memmove(&r->chars[at + 1], &r->chars[at], r->size - at * 1);
+    r->size++;
+    r->chars[at] = c;
+    tabUpdateRow(r);
+}
+
+void tabRowDelChar(struct row *r, int at) {
+    if (at < 0 || at >= r->size)
+        return;
+    memmove(&r->chars[at], &r->chars[at + 1], r->size - at);
+    r->size--;
+    tabUpdateRow(r);
+}
+
+void tabRowAppendString(struct row *r, char *s, size_t len) {
+    r->chars = realloc(r->chars, r->size + len + 1);
+    memcpy(&r->chars[r->size], s, len);
+    r->size += len;
+    r->chars[r->size] = '\0';
+    tabUpdateRow(r);
+}
+
+/*** tab operations ***/
 
 void tabUpdateRow(struct row *r) {
     int tabs = 0;
@@ -109,6 +145,57 @@ void tabInsertRow(struct tab *t, int at, char *s, size_t len) {
 void tabFreeRow(struct row *r) {
     free(r->render);
     free(r->chars);
+}
+
+void tabDelRow(struct tab *t, int at) {
+    if (at < 0 || at >= t->numrows)
+        return;
+    tabFreeRow(&t->rows[at]);
+    memmove(&t->rows[at], &t->rows[at + 1],
+            sizeof(struct row) * (t->numrows - at - 1));
+    for (int j = at; j < t->numrows - 1; j++)
+        t->rows[j].idx--;
+    t->numrows--;
+    t->dirty++;
+}
+
+void tabInsertNewline(struct tab *t) {
+    if (t->cx == 0) {
+        tabInsertRow(t, t->cy, "", 0);
+    } else {
+        struct row *r = &t->rows[t->cy];
+        tabInsertRow(t, t->cy + 1, &r->chars[t->cx], r->size - t->cx);
+        r = &t->rows[t->cy];
+        r->size = t->cx;
+        r->chars[r->size] = '\0';
+        tabUpdateRow(r);
+    }
+    t->cy++;
+    t->cx = 0;
+}
+
+void tabInsertChar(struct tab *t, int c) {
+    if (t->cy == t->numrows) {
+        tabInsertRow(t, t->numrows, "", 0);
+    }
+    tabRowInsertChar(&t->rows[t->cy], t->cx, c);
+    t->cx++;
+}
+
+void tabDelChar(struct tab *t) {
+    if (t->cy == t->numrows)
+        return;
+
+    struct row *r = &t->rows[t->cy];
+    if (t->cx > 0) {
+        tabRowDelChar(r, t->cx - 1);
+        t->cx--;
+    } else {
+        t->cx = t->rows[t->cy - 1].size;
+        tabRowAppendString(&t->rows[t->cy - 1], r->chars, r->size);
+        tabDelRow(t, t->cy);
+        t->cy--;
+    }
 }
 
 struct tab tabOpen(char *filename, int screenrows, int screencols) {
@@ -195,11 +282,12 @@ void drawTab(struct tab *t, struct abuf *ab) {
     abAppend(ab, buf, strlen(buf));
 }
 
-void tabNormalMode(struct tab *t, int key) {
+void tabMoveCursor(struct tab *t, int key) {
     struct row *r = (t->cy >= t->numrows) ? NULL : &t->rows[t->cy];
 
     switch (key) {
     case ARROW_LEFT:
+    case H:
         if (t->cx != 0) {
             t->cx--;
         } else if (t->cy > 0) {
@@ -208,6 +296,7 @@ void tabNormalMode(struct tab *t, int key) {
         }
         break;
     case ARROW_RIGHT:
+    case L:
         if (r && t->cx < r->size) {
             t->cx++;
         } else if (r && t->cx == r->size) {
@@ -216,11 +305,13 @@ void tabNormalMode(struct tab *t, int key) {
         }
         break;
     case ARROW_UP:
+    case K:
         if (t->cy != 0) {
             t->cy--;
         }
         break;
     case ARROW_DOWN:
+    case J:
         if (t->cy < t->numrows) {
             t->cy++;
         }
@@ -231,5 +322,94 @@ void tabNormalMode(struct tab *t, int key) {
     int rowlen = r ? r->size : 0;
     if (t->cx > rowlen)
         t->cx = rowlen;
+}
+
+int tabNormalMode(struct tab *t, int key) {
+    switch (key) {
+    case DOLLAR:
+        t->cx = t->rows[t->cy].size;
+        break;
+    case ZERO:
+        t->cx = 0;
+        break;
+    case HOME_KEY:
+        t->cx = 0;
+        break;
+    case END_KEY:
+        if (t->cy < t->numrows)
+            t->cx = t->rows[t->cy].size;
+        break;
+    case PAGE_UP:
+    case PAGE_DOWN: {
+        if (key == PAGE_UP)
+            t->cy = t->rowoff;
+        else if (key == PAGE_DOWN) {
+            t->cy = t->rowoff + t->screenrows - 1;
+            if (t->cy > t->numrows)
+                t->cy = t->numrows;
+        }
+    } break;
+    case ARROW_UP:
+    case ARROW_DOWN:
+    case ARROW_LEFT:
+    case ARROW_RIGHT:
+    case H:
+    case J:
+    case K:
+    case L:
+        tabMoveCursor(t, key);
+        break;
+    case I:
+        return EDIT;
+    }
+
+    return NORMAL;
+}
+
+int tabEditMode(struct tab *t, int key) {
+    switch (key) {
+    case ESC:
+        return NORMAL;
+    case CTRL_KEY('s'):
+        break;
+    case HOME_KEY:
+        t->cx = 0;
+        break;
+    case END_KEY:
+        if (t->cy < t->numrows)
+            t->cx = t->rows[t->cy].size;
+    case PAGE_UP:
+    case PAGE_DOWN: {
+        if (key == PAGE_UP) {
+            t->cy = t->rowoff;
+        } else if (key == PAGE_DOWN) {
+            t->cy = t->rowoff + t->screenrows - 1;
+            if (t->cy > t->numrows)
+                t->cy = t->numrows;
+        }
+    } break;
+    case ARROW_UP:
+    case ARROW_DOWN:
+    case ARROW_LEFT:
+    case ARROW_RIGHT:
+        tabMoveCursor(t, key);
+        break;
+    case BACKSPACE:
+    case CTRL_KEY('h'):
+    case DEL_KEY:
+        if (key == DEL_KEY)
+            tabMoveCursor(t, ARROW_RIGHT);
+        tabDelChar(t);
+        t->dirty++;
+        break;
+    case '\r':
+        tabInsertNewline(t);
+        break;
+    default:
+        tabInsertChar(t, key);
+        t->dirty++;
+        break;
+    }
+    return EDIT;
 }
 

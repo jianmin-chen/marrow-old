@@ -6,6 +6,7 @@
 #include "./config.h"
 #include "./error/error.h"
 #include "./keyboard/keyboard.h"
+#include "./modes.h"
 #include "./tab/tab.h"
 #include <ctype.h>
 #include <errno.h>
@@ -21,8 +22,6 @@
 #include <unistd.h>
 
 #define MARROW_VERSION "0.0.3"
-
-enum modes { NORMAL = 0, EDIT, FILETREE, TERMINAL };
 
 struct workspaceConfig {
     struct termios terminal;
@@ -174,13 +173,17 @@ void process(int key) {
         exit(0);
     default:
         if (global.mode == NORMAL) {
-            tabNormalMode(&global.tabs[global.activetab], key);
+            global.mode = tabNormalMode(&global.tabs[global.activetab], key);
+        } else if (global.mode == EDIT) {
+            global.mode = tabEditMode(&global.tabs[global.activetab], key);
         }
     }
 }
 
 void update(void) {
-    // Save the current tab
+    if (global.mode == EDIT) {
+        // Save the current tab
+    }
 }
 
 int main(int argc, char *argv[]) {

@@ -15,6 +15,7 @@ extern struct row {
 
 extern struct tab {
     char *filename;
+    char *swp;
     int numrows;
     struct row *rows;
     int cx, cy;
@@ -40,7 +41,9 @@ struct tab tabOpen(char *filename, int screenrows, int screencols);
 
 void drawTab(struct tab *t, struct abuf *ab);
 
-void tabNormalMode(struct tab *t, int key);
+int tabNormalMode(struct tab *t, int key);
+
+int tabEditMode(struct tab *t, int key);
 
 #endif
 

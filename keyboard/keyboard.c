@@ -5,6 +5,14 @@
 #define CTRL_KEY(k) ((k)&0x1f)
 
 enum keys {
+    ESC=27,
+    DOLLAR=36,
+    ZERO=48,
+    H=104,
+    I=105,
+    J=106,
+    K=107,
+    L=108,
     BACKSPACE = 127,
     ARROW_LEFT = 1000,
     ARROW_RIGHT,
