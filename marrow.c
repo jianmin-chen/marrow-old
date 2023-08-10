@@ -23,22 +23,22 @@
 
 #define MARROW_VERSION "0.0.3"
 
-struct workspaceConfig {
+typedef struct workspaceConfig {
     struct termios terminal;
     int activetab;
     int numtabs;
-    struct tab *tabs;
+    tab *tabs;
     int rows;
     int cols;
     int keypress;
     int mode;
 } workspaceConfig;
 
-struct workspaceConfig global;
+workspaceConfig global;
 
 /*** manage tabs ***/
 
-void workspaceInsertTab(int at, struct tab t) {
+void workspaceInsertTab(int at, tab t) {
     global.tabs = realloc(global.tabs, sizeof(t) + sizeof(global.tabs));
     memmove(&global.tabs[at + 1], &global.tabs[at],
             sizeof(t) * (global.numtabs - at));
@@ -126,7 +126,7 @@ void initWorkspace(void) {
 }
 
 void render(void) {
-    struct abuf ab = ABUF_INIT;
+    abuf ab = ABUF_INIT;
 
     // Hide cursor, move to top left
     abAppend(&ab, "\x1b[?25l", 6);
@@ -195,7 +195,7 @@ int main(int argc, char *argv[]) {
     initWorkspace();
 
     if (argc >= 2) {
-        struct tab new = tabOpen(argv[1], global.rows, global.cols);
+        tab new = tabOpen(argv[1], global.rows, global.cols);
         workspaceInsertTab(0, new);
         workspaceActiveTab(0);
     }

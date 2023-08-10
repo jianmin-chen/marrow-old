@@ -4,14 +4,14 @@
 #define ABUF_INIT                                                              \
     { NULL, 0 }
 
-extern struct abuf {
+typedef struct abuf {
     char *b;
     int len;
 } abuf;
 
-void abAppend(struct abuf *ab, const char *s, int len);
+void abAppend(abuf *ab, const char *s, int len);
 
-void abFree(struct abuf *ab);
+void abFree(abuf *ab);
 
 #endif
 

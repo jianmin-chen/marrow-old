@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 
-extern struct row {
+typedef struct row {
     int idx;
     int size;
     int rsize;
@@ -13,11 +13,11 @@ extern struct row {
     char *render;
 } row;
 
-extern struct tab {
+typedef struct tab {
     char *filename;
     char *swp;
     int numrows;
-    struct row *rows;
+    row *rows;
     int cx, cy;
     int rx;
     int rowoff;
@@ -29,26 +29,26 @@ extern struct tab {
     time_t statusmsg_time;
 } tab;
 
-void tabScroll(struct tab *t);
+void tabScroll(tab *t);
 
-void tabUpdateRow(struct row *r);
+void tabUpdateRow(row *r);
 
-void tabInsertRow(struct tab t, int at, char *s, size_t len);
+void tabInsertRow(tab t, int at, char *s, size_t len);
 
-void tabFreeRow(struct row *r);
+void tabFreeRow(row *r);
 
-struct tab tabOpen(char *filename, int screenrows, int screencols);
+tab tabOpen(char *filename, int screenrows, int screencols);
 
-void tabSetStatusMessage(struct tab *t, const char *fmt, ...);
+void tabSetStatusMessage(tab *t, const char *fmt, ...);
 
-char *tabPrompt(struct tab *t, char *prompt, void (*render)(void),
+char *tabPrompt(tab *t, char *prompt, void (*render)(void),
                 void (*callback)(char *, int));
 
-void drawTab(struct tab *t, struct abuf *ab);
+void drawTab(tab *t, abuf *ab);
 
-int tabNormalMode(struct tab *t, int key, void (*render)(void));
+int tabNormalMode(tab *t, int key, void (*render)(void));
 
-int tabEditMode(struct tab *t, int key, void (*render)(void));
+int tabEditMode(tab *t, int key, void (*render)(void));
 
 #endif
 

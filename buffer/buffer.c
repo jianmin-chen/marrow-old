@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct abuf {
+typedef struct abuf {
     char *b;
     int len;
 } abuf;
 
-void abAppend(struct abuf *ab, const char *s, int len) {
+void abAppend(abuf *ab, const char *s, int len) {
     char *new = realloc(ab->b, ab->len + len);
 
     if (new == NULL)
@@ -17,5 +17,5 @@ void abAppend(struct abuf *ab, const char *s, int len) {
     ab->len += len;
 }
 
-void abFree(struct abuf *ab) { free(ab->b); }
+void abFree(abuf *ab) { free(ab->b); }
 

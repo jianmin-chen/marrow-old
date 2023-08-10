@@ -3,7 +3,7 @@
 #define HL_NUMBERS (1 << 0)
 #define HL_STRINGS (1 << 1)
 
-struct syntax {
+typedef struct syntax {
     char *filetype;
     char **filematch;
     char **keywords;
@@ -11,7 +11,7 @@ struct syntax {
     char *multilineCommentStart;
     char *multilineCommentEnd;
     int flags;
-}
+} syntax;
 
 char *ARSON_extensions[] = {".ars", NULL};
 char *ARSON_keywords[] = {"burn", "for",  "through", "while", "prepmatch",
@@ -98,7 +98,7 @@ char *RUST_keywords = {
     "fn",    "for",  "impl",         "in",     "let",   "loop",
     "match", "mod",  "move",         "false|", NULL};
 
-struct syntax HLDB[] = {
+syntax HLDB[] = {
     {"arson", ARSON_extensions, ARSON_keywords, "#", NULL, NULL,
      HL_NUMBERS | HL_STRINGS},
     {"c", C_extensions, C_keywords, "//", "/*", "*/", HL_NUMBERS | HL_STRINGS}};

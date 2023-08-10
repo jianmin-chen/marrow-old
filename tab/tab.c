@@ -13,7 +13,7 @@
 
 /*** defines ***/
 
-struct row {
+typedef struct row {
     int idx;
     int size;
     int rsize;
@@ -21,11 +21,11 @@ struct row {
     char *render;
 } row;
 
-struct tab {
+typedef struct tab {
     char *filename;
     char *swp;
     int numrows;
-    struct row *rows;
+    row *rows;
     int cx, cy;
     int rx;
     int rowoff;
@@ -39,11 +39,11 @@ struct tab {
 
 /*** prototypes ***/
 
-void tabUpdateRow(struct row *r);
+void tabUpdateRow(row *r);
 
 /*** row operations ***/
 
-int rowCxToRx(struct row *r, int cx) {
+int rowCxToRx(row *r, int cx) {
     int rx = 0;
     int j;
     for (j = 0; j < cx; j++) {
@@ -54,7 +54,7 @@ int rowCxToRx(struct row *r, int cx) {
     return rx;
 }
 
-int rowRxToCx(struct row *r, int rx) {
+int rowRxToCx(row *r, int rx) {
     int cur_rx = 0;
     int cx;
     for (cx = 0; cx < r->size; cx++) {
@@ -67,7 +67,7 @@ int rowRxToCx(struct row *r, int rx) {
     return cx;
 }
 
-void tabRowInsertChar(struct row *r, int at, int c) {
+void tabRowInsertChar(row *r, int at, int c) {
     if (at < 0 || at > r->size)
         at = r->size;
     r->chars = realloc(r->chars, r->size + 2);
@@ -77,7 +77,7 @@ void tabRowInsertChar(struct row *r, int at, int c) {
     tabUpdateRow(r);
 }
 
-void tabRowDelChar(struct row *r, int at) {
+void tabRowDelChar(row *r, int at) {
     if (at < 0 || at >= r->size)
         return;
     memmove(&r->chars[at], &r->chars[at + 1], r->size - at);
@@ -85,7 +85,7 @@ void tabRowDelChar(struct row *r, int at) {
     tabUpdateRow(r);
 }
 
-void tabRowAppendString(struct row *r, char *s, size_t len) {
+void tabRowAppendString(row *r, char *s, size_t len) {
     r->chars = realloc(r->chars, r->size + len + 1);
     memcpy(&r->chars[r->size], s, len);
     r->size += len;
@@ -95,7 +95,7 @@ void tabRowAppendString(struct row *r, char *s, size_t len) {
 
 /*** tab operations ***/
 
-void tabUpdateRow(struct row *r) {
+void tabUpdateRow(row *r) {
     int tabs = 0;
     int j;
     for (j = 0; j < r->size; j++)
@@ -119,7 +119,7 @@ void tabUpdateRow(struct row *r) {
     r->rsize = idx;
 }
 
-void tabInsertRow(struct tab *t, int at, char *s, size_t len) {
+void tabInsertRow(tab *t, int at, char *s, size_t len) {
     if (at < 0 || at > t->numrows)
         return;
 
@@ -144,28 +144,28 @@ void tabInsertRow(struct tab *t, int at, char *s, size_t len) {
     t->numrows++;
 }
 
-void tabFreeRow(struct row *r) {
+void tabFreeRow(row *r) {
     free(r->render);
     free(r->chars);
 }
 
-void tabDelRow(struct tab *t, int at) {
+void tabDelRow(tab *t, int at) {
     if (at < 0 || at >= t->numrows)
         return;
     tabFreeRow(&t->rows[at]);
     memmove(&t->rows[at], &t->rows[at + 1],
-            sizeof(struct row) * (t->numrows - at - 1));
+            sizeof(row) * (t->numrows - at - 1));
     for (int j = at; j < t->numrows - 1; j++)
         t->rows[j].idx--;
     t->numrows--;
     t->dirty++;
 }
 
-void tabInsertNewline(struct tab *t) {
+void tabInsertNewline(tab *t) {
     if (t->cx == 0) {
         tabInsertRow(t, t->cy, "", 0);
     } else {
-        struct row *r = &t->rows[t->cy];
+        row *r = &t->rows[t->cy];
         tabInsertRow(t, t->cy + 1, &r->chars[t->cx], r->size - t->cx);
         r = &t->rows[t->cy];
         r->size = t->cx;
@@ -176,7 +176,7 @@ void tabInsertNewline(struct tab *t) {
     t->cx = 0;
 }
 
-void tabInsertChar(struct tab *t, int c) {
+void tabInsertChar(tab *t, int c) {
     if (t->cy == t->numrows) {
         tabInsertRow(t, t->numrows, "", 0);
     }
@@ -184,11 +184,11 @@ void tabInsertChar(struct tab *t, int c) {
     t->cx++;
 }
 
-void tabDelChar(struct tab *t) {
+void tabDelChar(tab *t) {
     if (t->cy == t->numrows)
         return;
 
-    struct row *r = &t->rows[t->cy];
+    row *r = &t->rows[t->cy];
     if (t->cx > 0) {
         tabRowDelChar(r, t->cx - 1);
         t->cx--;
@@ -202,8 +202,8 @@ void tabDelChar(struct tab *t) {
 
 /*** file operations ***/
 
-struct tab tabOpen(char *filename, int screenrows, int screencols) {
-    struct tab new;
+tab tabOpen(char *filename, int screenrows, int screencols) {
+    tab new;
     new.filename = strdup(filename);
     new.numrows = 0;
     new.rows = NULL;
@@ -243,11 +243,11 @@ struct tab tabOpen(char *filename, int screenrows, int screencols) {
     return new;
 }
 
-void tabSave(struct tab *t) {}
+void tabSave(tab *t) {}
 
 /*** status operations ***/
 
-void tabSetStatusMessage(struct tab *t, const char *fmt, ...) {
+void tabSetStatusMessage(tab *t, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(t->statusmsg, sizeof(t->statusmsg), fmt, ap);
@@ -257,8 +257,8 @@ void tabSetStatusMessage(struct tab *t, const char *fmt, ...) {
 
 /*** prompt operations ***/
 
-char *tabPrompt(struct tab *t, char *prompt, void (*render)(void),
-                void (*callback)(struct tab *t, char *, int)) {
+char *tabPrompt(tab *t, char *prompt, void (*render)(void),
+                void (*callback)(tab *t, char *, int)) {
     size_t bufsize = 128;
     char *buf = malloc(bufsize);
 
@@ -298,7 +298,7 @@ char *tabPrompt(struct tab *t, char *prompt, void (*render)(void),
     }
 }
 
-void tabScroll(struct tab *t) {
+void tabScroll(tab *t) {
     t->rx = t->cx;
     if (t->cy < t->numrows)
         t->rx = rowCxToRx(&t->rows[t->cy], t->cx);
@@ -313,7 +313,7 @@ void tabScroll(struct tab *t) {
         t->coloff = t->rx - t->screencols + 1;
 }
 
-void drawTab(struct tab *t, struct abuf *ab) {
+void drawTab(tab *t, abuf *ab) {
     tabScroll(t);
 
     int y;
@@ -369,8 +369,8 @@ void drawTab(struct tab *t, struct abuf *ab) {
     abAppend(ab, buf, strlen(buf));
 }
 
-void tabMoveCursor(struct tab *t, int key) {
-    struct row *r = (t->cy >= t->numrows) ? NULL : &t->rows[t->cy];
+void tabMoveCursor(tab *t, int key) {
+    row *r = (t->cy >= t->numrows) ? NULL : &t->rows[t->cy];
 
     switch (key) {
     case ARROW_LEFT:
@@ -411,7 +411,7 @@ void tabMoveCursor(struct tab *t, int key) {
         t->cx = rowlen;
 }
 
-void tabJumpTo(struct tab *t, char *buf, int key) {
+void tabJumpTo(tab *t, char *buf, int key) {
     // Convert buf to int
     for (unsigned long i = 0; i < strlen(buf); i++) {
         if (!isdigit(buf[i]))
@@ -426,7 +426,7 @@ void tabJumpTo(struct tab *t, char *buf, int key) {
     t->cy = line - 1;
 }
 
-int tabNormalMode(struct tab *t, int key, void (*render)(void)) {
+int tabNormalMode(tab *t, int key, void (*render)(void)) {
     switch (key) {
     case DOLLAR:
         t->cx = t->rows[t->cy].size;
@@ -471,7 +471,7 @@ int tabNormalMode(struct tab *t, int key, void (*render)(void)) {
     return NORMAL;
 }
 
-int tabEditMode(struct tab *t, int key, void (*render)(void)) {
+int tabEditMode(tab *t, int key, void (*render)(void)) {
     switch (key) {
     case ESC:
         return NORMAL;
