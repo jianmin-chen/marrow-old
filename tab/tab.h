@@ -1,7 +1,7 @@
 #ifndef TAB_H
 #define TAB_H
 
-#include "../buffer/buffer.h"
+#include "../libs/buffer.h"
 #include <string.h>
 #include <time.h>
 

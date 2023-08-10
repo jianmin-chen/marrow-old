@@ -1,7 +1,7 @@
 #ifndef STATUS_H
 #define STATUS_H
 
-#include "../buffer/buffer.h"
+#include "../libs/buffer.h"
 #include <time.h>
 
 typedef struct status {

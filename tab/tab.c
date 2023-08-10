@@ -1,4 +1,4 @@
-#include "../buffer/buffer.h"
+#include "../libs/buffer.h"
 #include "../config.h"
 #include "../keyboard/keyboard.h"
 #include "../modes.h"
