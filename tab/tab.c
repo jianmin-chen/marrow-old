@@ -620,6 +620,15 @@ void tabCommand(tab *t, char *buf, int key) {
     } else {
         // TODO
         unsigned int i = 0;
+
+		if (strncmp(buf, "settheme", 9) == 0 && strlen(buf) > 10) {
+			char *theme = malloc(strlen(buf) - 9);
+			for (unsigned int j = 9; j < strlen(buf); j++) {
+				theme[j - 9] = buf[j];
+			}
+			loadTheme(theme);
+		}
+	
         while (buf[i]) {
             char c = buf[i];
             if (c == 'w') {

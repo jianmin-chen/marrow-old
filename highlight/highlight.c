@@ -1,5 +1,6 @@
 #include "../config.h"
 #include "../libs/ini.h"
+#include "../status/error.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,6 +41,7 @@ enum highlight {
 #else
 colors DEFAULT_THEME = {-1, 37, 33, 32, 35, 31, 34, 36};
 colors *theme = &DEFAULT_THEME;
+char *themeName = "default";
 #endif
 
 char *ARSON_extensions[] = {".ars", NULL};
@@ -201,12 +203,36 @@ syntax *selectSyntaxHighlight(char *filename, char *filetype) {
         }
     }
 
-    return s;
+    return NULL;
 }
 
-int loadTheme(void) { return -1; }
+int handler(void *c, const char *section, const char *name, const char *value) {
+#define MATCH(s, n) strcmp(section, s) == 0 && strcmp(name, n) == 0
+	if (MATCH(themeName, "normal")) {
+		theme->normal = atoi(value);
+	} else if (MATCH(themeName, "keyword")) {
+		theme->keyword = atoi(value);
+	} else if (MATCH(themeName, "type")) {
+		theme->type = atoi(value);
+	} else if (MATCH(themeName, "string")) {
+		theme->string = atoi(value);
+	} else if (MATCH(themeName, "number")) {
+		theme->number = atoi(value);
+	} else if (MATCH(themeName, "match")) {
+		theme->match = atoi(value);
+	} else if (MATCH(themeName, "comment")) {
+		theme->comment = atoi(value);
+	}
+	return 0;
+}
 
 // Given a syntax struct and an INI file containing the themes load the themes
 // into syntax->themes
-void loadThemes(syntax *syn, char *filename) {}
+void loadTheme(char *name) {
+	themeName = name;
+	
+	if (ini_parse(HL_HIGHLIGHT_LOCATION, handler, &theme) < 0) {
+		die("Unable to load theme");
+	}
+}
 
