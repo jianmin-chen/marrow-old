@@ -22,6 +22,7 @@ typedef struct tab {
     int numrows;
     row *rows;
     status *bar;
+    syntax *syn;
     int cx, cy;
     int rx;
     int rowoff;

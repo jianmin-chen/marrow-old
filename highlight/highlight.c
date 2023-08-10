@@ -1,6 +1,8 @@
 #include "../config.h"
 #include "../libs/ini.h"
-#include <stdio.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 typedef struct colors {
     int background;
@@ -137,13 +139,56 @@ syntax HLDB[] = {
 
 #define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
 
-/*** load colors ***/
+/*** syntax highlighting ***/
 
-int loadTheme() {}
+int is_separator(int c) {
+    return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];", c) != NULL;
+}
+
+int syntaxToColor(colors theme, int hl) {
+    switch (hl) {
+    case HL_COMMENT:
+    case HL_MLCOMMENT:
+        return theme.comment;
+    case HL_KEYWORD:
+        return theme.keyword;
+    case HL_TYPE:
+        return theme.type;
+    case HL_STRING:
+        return theme.string;
+    case HL_NUMBER:
+        return theme.number;
+    case HL_MATCH:
+        return theme.match;
+    default:
+        return theme.normal;
+    }
+}
+
+void selectSyntaxHighlight(char *filename, char *filetype, syntax *s) {
+    if (filename == NULL)
+        return;
+
+    char *ext = strrchr(filename, '.');
+    filetype = ext;
+    for (unsigned int j = 0; j < HLDB_ENTRIES; j++) {
+        syntax *cmp = &HLDB[j];
+        unsigned int i = 0;
+        while (cmp->filematch[i]) {
+            int is_ext = (cmp->filematch[i][0] == '.');
+            if ((is_ext && ext && !strcmp(ext, cmp->filematch[i])) ||
+                (!is_ext && strstr(filename, cmp->filematch[i]))) {
+                s = &cmp;
+                return;
+            }
+            i++;
+        }
+    }
+}
+
+int loadTheme(void) { return -1; }
 
 // Given a syntax struct and an INI file containing the themes load the themes
 // into syntax->themes
-void loadThemes(syntax *syn, char *filename) {
-    if (ini_parse(filename, loadTheme, syn) < 0) {
-    }
-}
+void loadThemes(syntax *syn, char *filename) {}
+

@@ -6,6 +6,8 @@
 #include "../status/error.h"
 #include "../status/status.h"
 #include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +34,7 @@ typedef struct tab {
     int numrows;
     row *rows;
     status *bar;
+    syntax *syn;
     int cx, cy;
     int rx;
     int rowoff;
@@ -44,6 +47,10 @@ typedef struct tab {
 /*** prototypes ***/
 
 void tabUpdateRow(row *r);
+void dirty(tab *t);
+void tabBackup(tab *t);
+char *tabPrompt(tab *t, char *prompt, void (*render)(void),
+                void (*callback)(tab *t, char *, int), int onchange);
 
 /*** row operations ***/
 
@@ -97,6 +104,16 @@ void tabRowAppendString(row *r, char *s, size_t len) {
     tabUpdateRow(r);
 }
 
+/*** syntax related row operations ***/
+
+void updateSyntax(tab *t, row *r) {
+    r->hl = realloc(r->hl, r->rsize);
+    memset(r->hl, HL_NORMAL, r->rsize);
+
+    if (t->syn == NULL)
+        return;
+}
+
 /*** tab operations ***/
 
 void tabUpdateRow(row *r) {
@@ -135,8 +152,17 @@ void tabInsertRow(tab *t, int at, char *s, size_t len) {
 
     t->rows[at].idx = at;
 
-    t->rows[at].size = len;
-    t->rows[at].chars = malloc(len + 1);
+    int tabs = 0;
+    if (at != 0) {
+        // Remain on same tab length
+        int j;
+        for (j = 0; j < t->rows[at - 1].size; j++)
+            if (t->rows[at - 1].chars[j] == '\t')
+                tabs++;
+    }
+
+    t->rows[at].size = len + (tabs * MARROW_TAB_STOP);
+    t->rows[at].chars = malloc(len + (tabs * MARROW_TAB_STOP) + 1);
     memcpy(t->rows[at].chars, s, len);
     t->rows[at].chars[len] = '\0';
 
@@ -162,7 +188,7 @@ void tabDelRow(tab *t, int at) {
     for (int j = at; j < t->numrows - 1; j++)
         t->rows[j].idx--;
     t->numrows--;
-    t->dirty++;
+    dirty(t);
 }
 
 void tabInsertNewline(tab *t) {
@@ -209,7 +235,21 @@ void tabDelChar(tab *t) {
 tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     tab new;
     new.filename = strdup(filename);
-    new.filetype = NULL;
+    new.filetype = strrchr(filename, '.');
+    /*
+    time_t t = time(NULL);
+    struct tm *time;
+    time = localtime(&t);
+    if (time == NULL) {
+        die("localtime");
+    }
+    // .swp files are named as YYYY-MM-DD-(filename).swp
+    new.swp = malloc(sizeof(char) * (17 + sizeof(new.filename)));
+    strftime(new.swp, 12, ".%Y-%m-%d-", time);
+    snprintf(new.swp, (17 + sizeof(new.filename)), "%s%s.swp", new.swp, new.filename);
+    */
+    new.syn = NULL;
+    selectSyntaxHighlight(filename, new.filetype, new.syn);
     new.numrows = 0;
     new.rows = NULL;
     new.bar = s;
@@ -228,14 +268,14 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
         fclose(fptr);
     }
 
-    FILE *fp = fopen(filename, "r");
-    if (!fp)
+    FILE *fptr = fopen(filename, "r");
+    if (!fptr)
         die("fopen");
 
     char *line = NULL;
     size_t linecap = 0;
     ssize_t linelen;
-    while ((linelen = getline(&line, &linecap, fp)) != -1) {
+    while ((linelen = getline(&line, &linecap, fptr)) != -1) {
         while (linelen > 0 &&
                (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
             linelen--;
@@ -243,11 +283,83 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     }
 
     free(line);
-    fclose(fp);
+    fclose(fptr);
     return new;
 }
 
-void tabSave(tab *t) {}
+char *tabRowsToString(tab *t, int *buflen) {
+    int totlen = 0;
+    int j;
+    for (j = 0; j < t->numrows; j++)
+        totlen += t->rows[j].size + 1;
+    *buflen = totlen;
+
+    char *buf = malloc(totlen);
+    char *p = buf;
+    for (j = 0; j < t->numrows; j++) {
+        memcpy(p, t->rows[j].chars, t->rows[j].size);
+        p += t->rows[j].size;
+        *p = '\n';
+        p++;
+    }
+
+    return buf;
+}
+
+void dirty(tab *t) {
+    t->dirty++;
+    if (t->dirty % 5 == 0) {
+        // Every five changes save
+        tabBackup(t);
+    }
+}
+
+void tabSave(tab *t) {
+    if (t->filename) {
+        // Save to filename
+        int len;
+        char *buf = tabRowsToString(t, &len);
+
+        int fd = open(t->filename, O_RDWR | O_CREAT, 0644);
+        if (fd != -1) {
+            if (ftruncate(fd, len) != 1) {
+                if (write(fd, buf, len) == len) {
+                    close(fd);
+                    free(buf);
+                    t->dirty = 0;
+                    setStatusMessage(t->bar, "%d bytes written to disk", len);
+                    return;
+                }
+            }
+            close(fd);
+        }
+        free(buf);
+        setStatusMessage(t->bar, "Can't save! I/O error: %s", strerror(errno));
+    }
+}
+
+void tabBackup(tab *t) {
+    return;
+    if (t->swp) {
+        // Save to swap file
+        int len;
+        char *buf = tabRowsToString(t, &len);
+
+        int fd = open(t->swp, O_RDWR | O_CREAT, 0644);
+        if (fd != -1) {
+            if (ftruncate(fd, len) != -1) {
+                if (write(fd, buf, len) == len) {
+                    close(fd);
+                    free(buf);
+                    return;
+                }
+            }
+        }
+        free(buf);
+        setStatusMessage(t->bar, "Can't backup! I/O error: %s",
+                         strerror(errno));
+    }
+}
 
 void tabScroll(tab *t) {
     t->rx = t->cx;
@@ -381,18 +493,99 @@ void tabCommand(tab *t, char *buf, int key) {
         tabJumpTo(t, atoi(buf));
     } else {
         // TODO
-        if (strcmp(buf, "q") == 0) {
-            write(STDOUT_FILENO, "\x1b[2J", 4);
-            write(STDOUT_FILENO, "\x1b[H", 3);
-            exit(0);
+        unsigned int i = 0;
+        while (buf[i]) {
+            char c = buf[i];
+            if (c == 'w') {
+                tabSave(t);
+            } else if (c == 'q') {
+                write(STDOUT_FILENO, "\x1b[2J", 4);
+                write(STDOUT_FILENO, "\x1b[H", 3);
+                exit(0);
+            }
+            i++;
         }
     }
+}
+
+/*** find ***/
+
+void tabFindCallback(tab *t, char *query, int key) {
+    // ! This needs to be rewritten because static won't work with multiple tabs
+    static int last_match = -1;
+    static int direction = 1;
+
+    static int saved_hl_line;
+    static char *saved_hl = NULL;
+
+    if (saved_hl) {
+        memcpy(t->rows[saved_hl_line].hl, saved_hl,
+               t->rows[saved_hl_line].rsize);
+        free(saved_hl);
+        saved_hl = NULL;
+    }
+
+    if (key == '\r' || key == '\x1b') {
+        last_match = -1;
+        direction = 1;
+        return;
+    } else if (key == ARROW_RIGHT || key == ARROW_DOWN) {
+        direction = 1;
+    } else if (key == ARROW_LEFT || key == ARROW_UP) {
+        direction = -1;
+    } else {
+        last_match = -1;
+        direction = 1;
+    }
+
+    if (last_match == -1)
+        direction = 1;
+    int current = last_match;
+    int i;
+    for (i = 0; i < t->numrows; i++) {
+        current += direction;
+        if (current == -1)
+            current = t->numrows - 1;
+        else if (current == t->numrows)
+            current = 0;
+
+        row *r = &t->rows[current];
+        char *match = strstr(r->render, query);
+        if (match) {
+            last_match = current;
+            t->cy = current;
+            t->cx = rowRxToCx(r, match - r->render);
+            t->rowoff = t->numrows;
+
+            /*
+            saved_hl_line = current;
+            saved_hl = malloc(r->rsize);
+            memcpy(saved_hl, r->hl, r->rsize);
+            memset(&r->hl[match - r->render], HL_MATCH, strlen(query));
+            */
+            break;
+        }
+    }
+}
+
+void tabFind(tab *t, void (*render)(void)) {
+    int saved_cx = t->cx;
+    int saved_cy = t->cy;
+    int saved_coloff = t->coloff;
+    int saved_rowoff = t->rowoff;
+
+    tabPrompt(t, "/", render, tabFindCallback, 1);
+
+    t->cx = saved_cx;
+    t->cy = saved_cy;
+    t->coloff = saved_coloff;
+    t->rowoff = saved_rowoff;
 }
 
 /*** prompt ***/
 
 char *tabPrompt(tab *t, char *prompt, void (*render)(void),
-                void (*callback)(tab *t, char *, int)) {
+                void (*callback)(tab *t, char *, int), int onchange) {
     // Prompt, specifically for tabs
     size_t bufsize = 128;
     char *buf = malloc(bufsize);
@@ -413,6 +606,8 @@ char *tabPrompt(tab *t, char *prompt, void (*render)(void),
                 buf[--buflen] = '\0';
         } else if (c == '\x1b') {
             setStatusMessage(s, "");
+            if (callback && onchange)
+                callback(t, buf, c);
             free(buf);
             return NULL;
         } else if (c == '\r') {
@@ -430,6 +625,9 @@ char *tabPrompt(tab *t, char *prompt, void (*render)(void),
             buf[buflen++] = c;
             buf[buflen] = '\0';
         }
+
+        if (callback && onchange)
+            callback(t, buf, c);
     }
 }
 
@@ -437,6 +635,9 @@ char *tabPrompt(tab *t, char *prompt, void (*render)(void),
 
 int tabNormalMode(tab *t, int key, void (*render)(void)) {
     switch (key) {
+    case CTRL_KEY('s'):
+        tabSave(t);
+        break;
     case DOLLAR:
         t->cx = t->rows[t->cy].size;
         break;
@@ -461,7 +662,10 @@ int tabNormalMode(tab *t, int key, void (*render)(void)) {
         }
     } break;
     case COLON:
-        tabPrompt(t, ":", render, tabCommand);
+        tabPrompt(t, ":", render, tabCommand, 0);
+        break;
+    case SLASH:
+        tabFind(t, render);
         break;
     case ARROW_UP:
     case ARROW_DOWN:
@@ -487,6 +691,7 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
         setStatusMessage(t->bar, "Switching to NORMAL");
         return NORMAL;
     case CTRL_KEY('s'):
+        tabSave(t);
         break;
     case HOME_KEY:
         t->cx = 0;
@@ -516,14 +721,14 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
         if (key == DEL_KEY)
             tabMoveCursor(t, ARROW_RIGHT);
         tabDelChar(t);
-        t->dirty++;
+        dirty(t);
         break;
     case '\r':
         tabInsertNewline(t);
         break;
     default:
         tabInsertChar(t, key);
-        t->dirty++;
+        dirty(t);
         break;
     }
     return EDIT;

@@ -7,6 +7,7 @@
 enum keys {
     ESC=27,
     DOLLAR=36,
+    SLASH=47,
     ZERO=48,
     COLON=58,
     H=104,
@@ -14,6 +15,7 @@ enum keys {
     J=106,
     K=107,
     L=108,
+    W=119,
     BACKSPACE = 127,
     ARROW_LEFT = 1000,
     ARROW_RIGHT,
