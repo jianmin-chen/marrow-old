@@ -2,9 +2,10 @@
 #define _BSD_SOURCE
 #define _GNU_SOURCE
 
-#include "./libs/buffer.h"
 #include "./config.h"
+#include "./highlight/highlight.h"
 #include "./keyboard/keyboard.h"
+#include "./libs/buffer.h"
 #include "./modes.h"
 #include "./status/error.h"
 #include "./status/status.h"
@@ -30,6 +31,7 @@ typedef struct workspaceConfig {
     int numtabs;
     tab *tabs;
     status bar;
+    colors theme;
     int rows;
     int cols;
     int keypress;
@@ -116,6 +118,11 @@ void initWorkspace(void) {
     global.activetab = -1;
     global.numtabs = 0;
     global.tabs = NULL;
+#ifdef MARROW_THEME
+#else
+    colors DEFAULT_THEME = {-1, 37, 33, 32, 35, 31, 34, 36};
+    global.theme = DEFAULT_THEME;
+#endif
     global.bar.statusmsg[0] = '\0';
     global.bar.statusmsg_time = 0;
     global.rows = 0;
@@ -161,10 +168,9 @@ void render(void) {
             abAppend(&ab, "\r\n", 2);
         }
     } else {
-        // Render current tab for now
         tab *activeTab = &global.tabs[global.activetab];
 
-        drawTab(activeTab, &ab);
+        drawTab(activeTab, &ab, global.theme);
 
         // Draw message bar (status bar, whatever you want to call it)
         drawStatusBar(&global.bar, &ab, global.cols);

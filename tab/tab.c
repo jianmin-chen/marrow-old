@@ -1,6 +1,7 @@
-#include "../libs/buffer.h"
 #include "../config.h"
+#include "../highlight/highlight.h"
 #include "../keyboard/keyboard.h"
+#include "../libs/buffer.h"
 #include "../modes.h"
 #include "../status/error.h"
 #include "../status/status.h"
@@ -26,6 +27,7 @@ typedef struct row {
 
 typedef struct tab {
     char *filename;
+    char *filetype;
     char *swp;
     int numrows;
     row *rows;
@@ -207,6 +209,7 @@ void tabDelChar(tab *t) {
 tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     tab new;
     new.filename = strdup(filename);
+    new.filetype = NULL;
     new.numrows = 0;
     new.rows = NULL;
     new.bar = s;
@@ -261,7 +264,7 @@ void tabScroll(tab *t) {
         t->coloff = t->rx - t->screencols + 1;
 }
 
-void drawTab(tab *t, abuf *ab) {
+void drawTab(tab *t, abuf *ab, colors theme) {
     tabScroll(t);
 
     int y;
@@ -287,17 +290,24 @@ void drawTab(tab *t, abuf *ab) {
 
     // Draw status bar
     abAppend(ab, "\x1b[7m", 4);
-    char status[80];
+    char status[80], rstatus[80];
     int len = snprintf(status, sizeof(status), "%.20s - %d lines %s",
                        t->filename ? t->filename : "[No Name]", t->numrows,
                        t->dirty ? "(modified)" : "");
-
+    int rlen =
+        snprintf(rstatus, sizeof(rstatus), "%s | %d/%d",
+                 t->filetype ? t->filetype : "no ft", t->cy + 1, t->numrows);
     if (len > t->screencols)
         len = t->screencols;
     abAppend(ab, status, len);
     while (len < t->screencols) {
-        abAppend(ab, " ", 1);
-        len++;
+        if (t->screencols - len == rlen) {
+            abAppend(ab, rstatus, rlen);
+            break;
+        } else {
+            abAppend(ab, " ", 1);
+            len++;
+        }
     }
 
     abAppend(ab, "\x1b[m", 3);
@@ -348,19 +358,35 @@ void tabMoveCursor(tab *t, int key) {
         t->cx = rowlen;
 }
 
-void tabJumpTo(tab *t, char *buf, int key) {
-    // Convert buf to int
-    for (unsigned long i = 0; i < strlen(buf); i++) {
-        if (!isdigit(buf[i]))
-            return;
-    }
+/*** Commands (:) ***/
 
-    int line = atoi(buf);
+void tabJumpTo(tab *t, int line) {
     if (line == 0)
         line = 1;
     else if (line > t->numrows)
         line = t->numrows;
     t->cy = line - 1;
+}
+
+void tabCommand(tab *t, char *buf, int key) {
+    int jump = 1;
+    for (unsigned long i = 0; i < strlen(buf); i++) {
+        if (!isdigit(buf[i])) {
+            jump = -1;
+            break;
+        }
+    }
+
+    if (jump == 1) {
+        tabJumpTo(t, atoi(buf));
+    } else {
+        // TODO
+        if (strcmp(buf, "q") == 0) {
+            write(STDOUT_FILENO, "\x1b[2J", 4);
+            write(STDOUT_FILENO, "\x1b[H", 3);
+            exit(0);
+        }
+    }
 }
 
 /*** prompt ***/
@@ -435,7 +461,7 @@ int tabNormalMode(tab *t, int key, void (*render)(void)) {
         }
     } break;
     case COLON:
-        tabPrompt(t, ":", render, tabJumpTo);
+        tabPrompt(t, ":", render, tabCommand);
         break;
     case ARROW_UP:
     case ARROW_DOWN:
@@ -448,7 +474,7 @@ int tabNormalMode(tab *t, int key, void (*render)(void)) {
         tabMoveCursor(t, key);
         break;
     case I:
-        setStatusMessage(t->bar, "Switching to NORMAL");
+        setStatusMessage(t->bar, "Switching to EDIT");
         return EDIT;
     }
 
@@ -458,7 +484,7 @@ int tabNormalMode(tab *t, int key, void (*render)(void)) {
 int tabEditMode(tab *t, int key, void (*render)(void)) {
     switch (key) {
     case ESC:
-        setStatusMessage(t->bar, "Switching to EDIT");
+        setStatusMessage(t->bar, "Switching to NORMAL");
         return NORMAL;
     case CTRL_KEY('s'):
         break;

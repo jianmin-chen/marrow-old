@@ -17,6 +17,7 @@ typedef struct row {
 
 typedef struct tab {
     char *filename;
+    char *filetype;
     char *swp;
     int numrows;
     row *rows;
@@ -40,7 +41,7 @@ void tabFreeRow(row *r);
 
 tab tabOpen(char *filename, int screenrows, int screencols, status *s);
 
-void drawTab(tab *t, abuf *ab);
+void drawTab(tab *t, abuf *ab, colors theme);
 
 int tabNormalMode(tab *t, int key, void (*render)(void));
 

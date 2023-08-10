@@ -1,8 +1,6 @@
+#include "../config.h"
 #include "../libs/ini.h"
 #include <stdio.h>
-
-#define HL_NUMBERS (1 << 0)
-#define HL_STRINGS (1 << 1)
 
 typedef struct colors {
     int background;
@@ -16,7 +14,6 @@ typedef struct colors {
 } colors;
 
 typedef struct syntax {
-    colors *themes;
     char *filetype;
     char **filematch;
     char **keywords;
@@ -25,6 +22,17 @@ typedef struct syntax {
     char *multilineCommentEnd;
     int flags;
 } syntax;
+
+enum highlight {
+    HL_NORMAL = 0,
+    HL_COMMENT,
+    HL_MLCOMMENT,
+    HL_KEYWORD,
+    HL_TYPE,
+    HL_STRING,
+    HL_NUMBER,
+    HL_MATCH
+};
 
 char *ARSON_extensions[] = {".ars", NULL};
 char *ARSON_keywords[] = {"burn", "for",  "through", "while", "prepmatch",

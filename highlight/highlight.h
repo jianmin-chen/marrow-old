@@ -1,8 +1,16 @@
 #ifndef HIGHLIGHT_H
 #define HIGHLIGHT_H
 
-#define HL_NUMBERS (1 << 0)
-#define HL_STRINGS (1 << 1)
+typedef struct colors {
+    int background;
+    int normal;
+    int keyword;
+    int type;
+    int string;
+    int number;
+    int match;
+    int comment;
+} colors;
 
 typedef struct syntax {
     char *filetype;
@@ -14,8 +22,16 @@ typedef struct syntax {
     int flags;
 } syntax;
 
-syntax HLDB[];
-
-#define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
+enum highlight {
+    HL_NORMAL = 0,
+    HL_COMMENT,
+    HL_MLCOMMENT,
+    HL_KEYWORD,
+    HL_TYPE,
+    HL_STRING,
+    HL_NUMBER,
+    HL_MATCH
+};
 
 #endif
+
