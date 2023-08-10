@@ -1,8 +1,9 @@
 #include "../buffer/buffer.h"
 #include "../config.h"
-#include "../error/error.h"
 #include "../keyboard/keyboard.h"
 #include "../modes.h"
+#include "../status/error.h"
+#include "../status/status.h"
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -19,6 +20,8 @@ typedef struct row {
     int rsize;
     char *chars;
     char *render;
+    unsigned char *hl;
+    int hl_open_comment;
 } row;
 
 typedef struct tab {
@@ -26,6 +29,7 @@ typedef struct tab {
     char *swp;
     int numrows;
     row *rows;
+    status *bar;
     int cx, cy;
     int rx;
     int rowoff;
@@ -33,8 +37,6 @@ typedef struct tab {
     int screenrows;
     int screencols;
     int dirty;
-    char statusmsg[80];
-    time_t statusmsg_time;
 } tab;
 
 /*** prototypes ***/
@@ -202,11 +204,12 @@ void tabDelChar(tab *t) {
 
 /*** file operations ***/
 
-tab tabOpen(char *filename, int screenrows, int screencols) {
+tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     tab new;
     new.filename = strdup(filename);
     new.numrows = 0;
     new.rows = NULL;
+    new.bar = s;
     new.cx = 0;
     new.cy = 0;
     new.rx = 0;
@@ -215,8 +218,6 @@ tab tabOpen(char *filename, int screenrows, int screencols) {
     new.screenrows = screenrows;
     new.screencols = screencols;
     new.dirty = 0;
-    new.statusmsg[0] = '\0';
-    new.statusmsg_time = 0;
 
     if (access(filename, F_OK) != 0) {
         // Create file
@@ -244,59 +245,6 @@ tab tabOpen(char *filename, int screenrows, int screencols) {
 }
 
 void tabSave(tab *t) {}
-
-/*** status operations ***/
-
-void tabSetStatusMessage(tab *t, const char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(t->statusmsg, sizeof(t->statusmsg), fmt, ap);
-    va_end(ap);
-    t->statusmsg_time = time(NULL);
-}
-
-/*** prompt operations ***/
-
-char *tabPrompt(tab *t, char *prompt, void (*render)(void),
-                void (*callback)(tab *t, char *, int)) {
-    size_t bufsize = 128;
-    char *buf = malloc(bufsize);
-
-    size_t buflen = 0;
-    buf[0] = '\0';
-
-    while (1) {
-        snprintf(t->statusmsg, sizeof(t->statusmsg), "%s%s", prompt, buf);
-        t->statusmsg_time = time(NULL);
-        render();
-
-        int c = editorReadKey();
-        if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
-            if (buflen != 0)
-                buf[--buflen] = '\0';
-        } else if (c == '\x1b') {
-            tabSetStatusMessage(t, "");
-            if (callback)
-                callback(t, buf, c);
-            free(buf);
-            return NULL;
-        } else if (c == '\r') {
-            if (buflen != 0) {
-                tabSetStatusMessage(t, "");
-                if (callback)
-                    callback(t, buf, c);
-                return buf;
-            }
-        } else if (!iscntrl(c) && c < 128) {
-            if (buflen == bufsize - 1) {
-                bufsize *= 2;
-                buf = realloc(buf, bufsize);
-            }
-            buf[buflen++] = c;
-            buf[buflen] = '\0';
-        }
-    }
-}
 
 void tabScroll(tab *t) {
     t->rx = t->cx;
@@ -354,20 +302,9 @@ void drawTab(tab *t, abuf *ab) {
 
     abAppend(ab, "\x1b[m", 3);
     abAppend(ab, "\r\n", 2);
-
-    // Draw message bar
-    abAppend(ab, "\x1b[K", 3);
-    int msglen = strlen(t->statusmsg);
-    if (msglen > t->screencols)
-        msglen = t->screencols;
-    if (msglen && time(NULL) - t->statusmsg_time < 5)
-        abAppend(ab, t->statusmsg, msglen);
-
-    char buf[32];
-    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (t->cy - t->rowoff) + 1,
-             (t->rx - t->coloff) + 1);
-    abAppend(ab, buf, strlen(buf));
 }
+
+/*** cursor operations ***/
 
 void tabMoveCursor(tab *t, int key) {
     row *r = (t->cy >= t->numrows) ? NULL : &t->rows[t->cy];
@@ -426,6 +363,52 @@ void tabJumpTo(tab *t, char *buf, int key) {
     t->cy = line - 1;
 }
 
+/*** prompt ***/
+
+char *tabPrompt(tab *t, char *prompt, void (*render)(void),
+                void (*callback)(tab *t, char *, int)) {
+    // Prompt, specifically for tabs
+    size_t bufsize = 128;
+    char *buf = malloc(bufsize);
+
+    size_t buflen = 0;
+    buf[0] = '\0';
+
+    status *s = t->bar;
+
+    while (1) {
+        snprintf(s->statusmsg, sizeof(s->statusmsg), "%s%s", prompt, buf);
+        s->statusmsg_time = time(NULL);
+        render();
+
+        int c = editorReadKey();
+        if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
+            if (buflen != 0)
+                buf[--buflen] = '\0';
+        } else if (c == '\x1b') {
+            setStatusMessage(s, "");
+            free(buf);
+            return NULL;
+        } else if (c == '\r') {
+            if (buflen != 0) {
+                setStatusMessage(s, "");
+                if (callback)
+                    callback(t, buf, c);
+                return buf;
+            }
+        } else if (!iscntrl(c) && c < 128) {
+            if (buflen == bufsize - 1) {
+                bufsize *= 2;
+                buf = realloc(buf, bufsize);
+            }
+            buf[buflen++] = c;
+            buf[buflen] = '\0';
+        }
+    }
+}
+
+/*** modes ***/
+
 int tabNormalMode(tab *t, int key, void (*render)(void)) {
     switch (key) {
     case DOLLAR:
@@ -465,6 +448,7 @@ int tabNormalMode(tab *t, int key, void (*render)(void)) {
         tabMoveCursor(t, key);
         break;
     case I:
+        setStatusMessage(t->bar, "Switching to NORMAL");
         return EDIT;
     }
 
@@ -474,6 +458,7 @@ int tabNormalMode(tab *t, int key, void (*render)(void)) {
 int tabEditMode(tab *t, int key, void (*render)(void)) {
     switch (key) {
     case ESC:
+        setStatusMessage(t->bar, "Switching to EDIT");
         return NORMAL;
     case CTRL_KEY('s'):
         break;

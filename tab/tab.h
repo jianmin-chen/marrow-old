@@ -11,6 +11,8 @@ typedef struct row {
     int rsize;
     char *chars;
     char *render;
+    unsigned char *hl;
+    int hl_open_comment;
 } row;
 
 typedef struct tab {
@@ -18,6 +20,7 @@ typedef struct tab {
     char *swp;
     int numrows;
     row *rows;
+    status *bar;
     int cx, cy;
     int rx;
     int rowoff;
@@ -25,8 +28,6 @@ typedef struct tab {
     int screenrows;
     int screencols;
     int dirty;
-    char statusmsg[80];
-    time_t statusmsg_time;
 } tab;
 
 void tabScroll(tab *t);
@@ -37,12 +38,7 @@ void tabInsertRow(tab t, int at, char *s, size_t len);
 
 void tabFreeRow(row *r);
 
-tab tabOpen(char *filename, int screenrows, int screencols);
-
-void tabSetStatusMessage(tab *t, const char *fmt, ...);
-
-char *tabPrompt(tab *t, char *prompt, void (*render)(void),
-                void (*callback)(char *, int));
+tab tabOpen(char *filename, int screenrows, int screencols, status *s);
 
 void drawTab(tab *t, abuf *ab);
 

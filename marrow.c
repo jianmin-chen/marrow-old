@@ -4,9 +4,10 @@
 
 #include "./buffer/buffer.h"
 #include "./config.h"
-#include "./error/error.h"
 #include "./keyboard/keyboard.h"
 #include "./modes.h"
+#include "./status/error.h"
+#include "./status/status.h"
 #include "./tab/tab.h"
 #include <ctype.h>
 #include <errno.h>
@@ -28,6 +29,7 @@ typedef struct workspaceConfig {
     int activetab;
     int numtabs;
     tab *tabs;
+    status bar;
     int rows;
     int cols;
     int keypress;
@@ -114,6 +116,8 @@ void initWorkspace(void) {
     global.activetab = -1;
     global.numtabs = 0;
     global.tabs = NULL;
+    global.bar.statusmsg[0] = '\0';
+    global.bar.statusmsg_time = 0;
     global.rows = 0;
     global.cols = 0;
     global.keypress = 0;
@@ -158,7 +162,19 @@ void render(void) {
         }
     } else {
         // Render current tab for now
-        drawTab(&global.tabs[global.activetab], &ab);
+        tab *activeTab = &global.tabs[global.activetab];
+
+        drawTab(activeTab, &ab);
+
+        // Draw message bar (status bar, whatever you want to call it)
+        drawStatusBar(&global.bar, &ab, global.cols);
+
+        // Draw cursor
+        char buf[32];
+        snprintf(buf, sizeof(buf), "\x1b[%d;%dH",
+                 (activeTab->cy - activeTab->rowoff) + 1,
+                 (activeTab->rx - activeTab->coloff) + 1);
+        abAppend(&ab, buf, strlen(buf));
     }
 
     abAppend(&ab, "\x1b[?25h", 6); // Show cursor again
@@ -195,7 +211,7 @@ int main(int argc, char *argv[]) {
     initWorkspace();
 
     if (argc >= 2) {
-        tab new = tabOpen(argv[1], global.rows, global.cols);
+        tab new = tabOpen(argv[1], global.rows, global.cols, &global.bar);
         workspaceInsertTab(0, new);
         workspaceActiveTab(0);
     }
