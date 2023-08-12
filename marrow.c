@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +25,10 @@
 #include <unistd.h>
 
 #define MARROW_VERSION "0.0.3"
+
+/*** prototypes ***/
+
+void render(void);
 
 typedef struct workspaceConfig {
     struct termios terminal;
@@ -113,6 +118,20 @@ int getWindowSize(int *rows, int *cols) {
     }
 }
 
+static void resize(int sig) {
+    if (SIGWINCH == sig) {
+        if (getWindowSize(&global.rows, &global.cols) == -1)
+            die("getWindowSize");
+
+        tab *activeTab = &global.tabs[global.activetab];
+        global.rows -= 2;
+        activeTab->screenrows = global.rows;
+        activeTab->screencols = global.cols;
+        
+        render();
+    }
+}
+
 void initWorkspace(void) {
     global.activetab = -1;
     global.numtabs = 0;
@@ -146,10 +165,9 @@ void render(void) {
                 int welcomelen =
                     snprintf(welcome, sizeof(welcome),
                              "Marrow editor -- version %s", MARROW_VERSION);
-                                
-                    welcomelen = global.cols;
-                int padding = (global.cols - welcomelen) / 2;
 
+                welcomelen = global.cols;
+                int padding = (global.cols - welcomelen) / 2;
                 if (padding) {
                     abAppend(&ab, "~", 1);
                     padding--;
@@ -171,11 +189,7 @@ void render(void) {
         drawStatusBar(&global.bar, &ab, global.cols);
 
         // Draw cursor
-        char buf[32];
-        snprintf(buf, sizeof(buf), "\x1b[%d;%dH",
-                 (activeTab->cy - activeTab->rowoff) + 1,
-                 (activeTab->rx - activeTab->coloff) + 1);
-        abAppend(&ab, buf, strlen(buf));
+        drawTabCursor(activeTab, &ab);
     }
 
     abAppend(&ab, "\x1b[?25h", 6); // Show cursor again
@@ -213,6 +227,8 @@ int main(int argc, char *argv[]) {
         workspaceActiveTab(0);
     }
 
+    signal(SIGWINCH, resize);
+
     while (1) {
         render();
         global.keypress = editorReadKey();
@@ -222,4 +238,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-

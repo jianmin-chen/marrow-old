@@ -1,8 +1,6 @@
 ## TODO
 
 - [ ] Get backup (keypresses) and save working
-- [ ] Get tabs to remain the same when user goes to next line: work on this right now
-- [ ] Get line numbers working
 - [ ] Get Git gutters working
 - [ ] Get Wakatime integration working (should we write scripts in a different lang to do these things or...?)
 - [ ] Soft wrap choice
@@ -13,10 +11,9 @@
 - [ ] Be able to move around and open files through the tree view
 - [ ] Get terminal emulator working
 - [ ] Get multiple terminal system up and running
-- [ ] Resizing sucks
-- [ ] Fix paste to be faster (don't read chars just render?)
 
-**Keep in mind support for Linux too. (Who cares about Windows LOL, the kind of people to use this stuff typically wouldn't use Windows anyway)**
+- [ ] Resizing sucks: now
+- [ ] Fix paste to be faster (don't read chars just render?)
 
 ## About
 
@@ -56,6 +53,3 @@ Want to try this out? Great. I've only run this on my Macbook, so not sure if it
 Yes! Just mentioned it before, but I wrote this README with `marrow`. I simply set up an alias for `zsh` (I'm on a Macbook at the time of writing) so I can run it with `marrow <file>`.
 
 Does this mean I'm using it solely by itself? Nope. This was intended to replace Vim in my Vim + VSCode setup, although I think I'll still be using all three. (This for funsies, Vim to learn Vim, and VSCode when I need to switch between multiple files every few seconds). It's a lot of fun using something you built!
- 
-
-

@@ -15,6 +15,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <math.h>
 
 /*** defines ***/
 
@@ -39,6 +40,7 @@ typedef struct tab {
     keypress *keystrokes;
     int cx, cy;
     int rx;
+    int gutter;
     int rowoff;
     int coloff;
     int screenrows;
@@ -303,7 +305,6 @@ void tabDelRow(tab *t, int at) {
 }
 
 void tabInsertNewline(tab *t) {
-    // This gets called only by tabInsertMode
     if (t->cx == 0) {
         tabInsertRow(t, t->cy, "", 0);
         t->cx = 0;
@@ -317,7 +318,12 @@ void tabInsertNewline(tab *t) {
 
         int size = r->size - t->cx + spaces;
         char *new = malloc(sizeof(char) * size);
-        for (int i = 0; i < spaces; i++) strcat(new, " ");
+        for (int i = 0; i < spaces; i++) {
+            if (spaces - i > MARROW_TAB_STOP) {
+                // Can insert tab
+            }
+            strcat(new, " ");
+        }
         strcat(new, &r->render[t->cx]);
         new[size] = '\0';
 
@@ -385,6 +391,7 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     new.cx = 0;
     new.cy = 0;
     new.rx = 0;
+    new.gutter = 0;
     new.rowoff = 0;
     new.coloff = 0;
     new.screenrows = screenrows;
@@ -487,21 +494,57 @@ void tabScroll(tab *t) {
         t->coloff = t->rx - t->screencols + 1;
 }
 
+void drawTabCursor(tab *t, abuf *ab) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH",
+                (t->cy - t->rowoff) + 1,
+                (t->rx - t->coloff + t->gutter) + 1);
+    abAppend(ab, buf, strlen(buf));
+}
+
 void drawTab(tab *t, abuf *ab) {
     tabScroll(t);
+
+    int linelen;
+    if (MARROW_LINE_NUMBERS) {
+        linelen = floor(log10(t->screenrows + 1)) + 2;
+        t->gutter = linelen + 1;
+    }
 
     int y;
     for (y = 0; y < t->screenrows; y++) {
         int filerow = y + t->rowoff;
         if (filerow >= t->numrows) {
             abAppend(ab, "~", 1);
-        } else if (t->syn) {
+            abAppend(ab, "\x1b[K", 3);
+            abAppend(ab, "\r\n", 2);
+            continue;
+        }
+
+        if (MARROW_GIT_GUTTERS) {
+            // Git diff information in gutter
+
+        }
+        
+        if (MARROW_LINE_NUMBERS) {
+            // Line numbers in gutter
+            int ndigits = floor(log10(filerow + 1)) + 2;
+            char buf[ndigits + 1];
+            while (ndigits <= linelen) {
+                abAppend(ab, " ", 1);
+                ndigits++;
+            }
+            int clen = snprintf(buf, sizeof(buf), "%i ", filerow + 1);
+            abAppend(ab, buf, clen);
+        }
+
+        if (t->syn) {
             // Syntax highlighting enabled
             int len = t->rows[filerow].rsize - t->coloff;
             if (len < 0)
                 len = 0;
-            if (len > t->screencols)
-                len = t->screencols;
+            if (len > t->screencols - t->gutter)
+                len = t->screencols - t->gutter;
             char *c = &t->rows[filerow].render[t->coloff];
             unsigned char *hl = &t->rows[filerow].hl[t->coloff];
             int current_color = -1;
@@ -545,6 +588,7 @@ void drawTab(tab *t, abuf *ab) {
                 abAppend(ab, &c[j], 1);
             }
         }
+
         abAppend(ab, "\x1b[K", 3);
         abAppend(ab, "\r\n", 2);
     }

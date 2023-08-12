@@ -29,6 +29,7 @@ typedef struct tab {
     keypress *keystrokes;
     int cx, cy;
     int rx;
+    int gutter;
     int rowoff;
     int coloff;
     int screenrows;
@@ -45,6 +46,8 @@ void tabInsertRow(tab t, int at, char *s, size_t len);
 void tabFreeRow(row *r);
 
 tab tabOpen(char *filename, int screenrows, int screencols, status *s);
+
+void drawTabCursor(tab *t, abuf *ab);
 
 void drawTab(tab *t, abuf *ab);
 
