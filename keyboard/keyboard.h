@@ -10,6 +10,7 @@ enum keys {
     SLASH = 47,
     ZERO = 48,
     COLON = 58,
+    D = 100,
     H = 104,
     I = 105,
     J = 106,
@@ -39,4 +40,3 @@ typedef struct keypress {
 keypress *addKeystroke(int key, keypress *ptr);
 
 #endif
-

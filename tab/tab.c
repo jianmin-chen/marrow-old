@@ -52,7 +52,7 @@ void tabUpdateRow(tab *t, row *r);
 void dirty(tab *t);
 void tabBackup(tab *t);
 char *tabPrompt(tab *t, char *prompt, void (*render)(void),
-                void (*callback)(tab *t, char *, int), int onchange);
+                int (*callback)(tab *t, char *, int), int onchange);
 
 /*** row operations ***/
 
@@ -109,7 +109,8 @@ void tabRowAppendString(tab *t, row *r, char *s, size_t len) {
 /*** syntax related row operations ***/
 
 void tabUpdateSyntax(tab *t, row *r) {
-    if (!t->syn) return;
+    if (!t->syn)
+        return;
     r->hl = realloc(r->hl, r->rsize);
     memset(r->hl, HL_NORMAL, r->rsize);
 
@@ -149,6 +150,9 @@ void tabUpdateSyntax(tab *t, row *r) {
                     i += mce_len;
                     in_comment = 0;
                     prev_sep = 1;
+                    continue;
+                } else {
+                    i++;
                     continue;
                 }
             } else if (!strncmp(&r->render[i], mcs, mcs_len)) {
@@ -299,18 +303,35 @@ void tabDelRow(tab *t, int at) {
 }
 
 void tabInsertNewline(tab *t) {
+    // This gets called only by tabInsertMode
     if (t->cx == 0) {
         tabInsertRow(t, t->cy, "", 0);
+        t->cx = 0;
     } else {
+        // Get number of tabs on current line and inject in
         row *r = &t->rows[t->cy];
-        tabInsertRow(t, t->cy + 1, &r->chars[t->cx], r->size - t->cx);
+
+        int spaces = 0;
+        char *c = &r->render[0];
+        while (c[spaces] == ' ') spaces++;
+
+        int size = r->size - t->cx + spaces;
+        char *new = malloc(sizeof(char) * size);
+        for (int i = 0; i < spaces; i++) strcat(new, " ");
+        strcat(new, &r->render[t->cx]);
+        new[size] = '\0';
+
+        tabInsertRow(t, t->cy + 1, new, size);
+        
+        // Update previous row
         r = &t->rows[t->cy];
         r->size = t->cx;
         r->chars[r->size] = '\0';
         tabUpdateRow(t, r);
+
+        t->cx = size;
     }
     t->cy++;
-    t->cx = 0;
 }
 
 void tabInsertChar(tab *t, int c) {
@@ -514,8 +535,10 @@ void drawTab(tab *t, abuf *ab) {
         } else {
             // No syntax highlighting
             int len = t->rows[filerow].rsize - t->coloff;
-            if (len < 0) len = 0;
-            if (len > t->screencols) len = t->screencols;
+            if (len < 0)
+                len = 0;
+            if (len > t->screencols)
+                len = t->screencols;
             char *c = &t->rows[filerow].render[t->coloff];
             int j;
             for (j = 0; j < len; j++) {
@@ -606,7 +629,27 @@ void tabJumpTo(tab *t, int line) {
     t->cy = line - 1;
 }
 
-void tabCommand(tab *t, char *buf, int key) {
+int tabCenter(tab *t, char *buf, int key) {
+    if (strcmp(buf, "z") == 0) {
+        t->rowoff = t->cy - (t->screenrows / 2);
+        if (t->rowoff < 0)
+            t->rowoff = 0;
+        return 0;
+    }
+
+    return 1;
+}
+
+int tabDelete(tab *t, char *buf, int key) {
+    if (strcmp(buf, "d") == 0) {
+        tabDelRow(t, t->cy);
+        return 0;
+    }
+
+    return 1;
+}
+
+int tabCommand(tab *t, char *buf, int key) {
     int jump = 1;
     for (unsigned long i = 0; i < strlen(buf); i++) {
         if (!isdigit(buf[i])) {
@@ -621,14 +664,15 @@ void tabCommand(tab *t, char *buf, int key) {
         // TODO
         unsigned int i = 0;
 
-		if (strncmp(buf, "settheme", 9) == 0 && strlen(buf) > 10) {
-			char *theme = malloc(strlen(buf) - 9);
-			for (unsigned int j = 9; j < strlen(buf); j++) {
-				theme[j - 9] = buf[j];
-			}
-			loadTheme(theme);
-		}
-	
+        if (strncmp(buf, "settheme ", 9) == 0 && strlen(buf) > 10) {
+            char *theme = malloc(strlen(buf) - 9);
+            for (unsigned int j = 9; j < strlen(buf); j++) {
+                theme[j - 9] = buf[j];
+            }
+            loadTheme(theme);
+            return 0;
+        }
+
         while (buf[i]) {
             char c = buf[i];
             if (c == 'w') {
@@ -641,11 +685,12 @@ void tabCommand(tab *t, char *buf, int key) {
             i++;
         }
     }
+    return 0;
 }
 
 /*** find ***/
 
-void tabFindCallback(tab *t, char *query, int key) {
+int tabFind(tab *t, char *query, int key) {
     // ! This needs to be rewritten because static won't work with multiple tabs
     static int last_match = -1;
     static int direction = 1;
@@ -663,6 +708,7 @@ void tabFindCallback(tab *t, char *query, int key) {
     if (key == '\r' || key == '\x1b') {
         last_match = -1;
         direction = 1;
+        return 0;
     } else if (key == ARROW_RIGHT || key == ARROW_DOWN) {
         direction = 1;
     } else if (key == ARROW_LEFT || key == ARROW_UP) {
@@ -706,26 +752,14 @@ void tabFindCallback(tab *t, char *query, int key) {
             break;
         }
     }
-}
 
-void tabFind(tab *t, void (*render)(void)) {
-    int saved_cx = t->cx;
-    int saved_cy = t->cy;
-    int saved_coloff = t->coloff;
-    int saved_rowoff = t->rowoff;
-
-    tabPrompt(t, "/", render, tabFindCallback, 1);
-
-    t->cx = saved_cx;
-    t->cy = saved_cy;
-    t->coloff = saved_coloff;
-    t->rowoff = saved_rowoff;
+    return 1;
 }
 
 /*** prompt ***/
 
 char *tabPrompt(tab *t, char *prompt, void (*render)(void),
-                void (*callback)(tab *t, char *, int), int onchange) {
+                int (*callback)(tab *t, char *, int), int onchange) {
     // Prompt, specifically for tabs
     size_t bufsize = 128;
     char *buf = malloc(bufsize);
@@ -745,9 +779,14 @@ char *tabPrompt(tab *t, char *prompt, void (*render)(void),
             if (buflen != 0)
                 buf[--buflen] = '\0';
         } else if (c == '\x1b') {
+            if (callback && onchange) {
+                int response = callback(t, buf, c);
+                if (response == 0) {
+                    setStatusMessage(s, "");
+                    return buf;
+                }
+            }
             setStatusMessage(s, "");
-            if (callback && onchange)
-                callback(t, buf, c);
             free(buf);
             return NULL;
         } else if (c == '\r') {
@@ -766,8 +805,13 @@ char *tabPrompt(tab *t, char *prompt, void (*render)(void),
             buf[buflen] = '\0';
         }
 
-        if (callback && onchange)
-            callback(t, buf, c);
+        if (callback && onchange) {
+            int response = callback(t, buf, c);
+            if (response == 0) {
+                setStatusMessage(s, "");
+                return buf;
+            }
+        }
     }
 }
 
@@ -801,11 +845,17 @@ int tabNormalMode(tab *t, int key, void (*render)(void)) {
                 t->cy = t->numrows;
         }
     } break;
+    case D:
+        tabPrompt(t, "d", render, tabDelete, 1);
+        break;
+    case Z:
+        tabPrompt(t, "z", render, tabCenter, 1);
+        break;
     case COLON:
         tabPrompt(t, ":", render, tabCommand, 0);
         break;
     case SLASH:
-        tabFind(t, render);
+        tabPrompt(t, "/", render, tabFind, 1);
         break;
     case ARROW_UP:
     case ARROW_DOWN:
@@ -878,4 +928,3 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
     }
     return EDIT;
 }
-

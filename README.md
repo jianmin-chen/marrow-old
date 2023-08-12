@@ -1,19 +1,18 @@
 ## TODO
 
 - [ ] Get backup (keypresses) and save working
-- [ ] Get tabs to remain the same when user goes to next line
-- [ ] `zz` to center, other commands you normally use in Vim (`dd`)
-- [ ] Get tab system working, `;` and Ctrl+number to move between tabs
+- [ ] Get tabs to remain the same when user goes to next line: work on this right now
 - [ ] Get line numbers working
 - [ ] Get Git gutters working
 - [ ] Get Wakatime integration working (should we write scripts in a different lang to do these things or...?)
+- [ ] Soft wrap choice
+- [ ] `u` keystroke
+
+- [ ] Get tab system working, `;` and Ctrl+number to move between tabs
 - [ ] Get tree view similar to Vim's ":Ex" working, starting in the directory of the given file or just the default directory if one isn't provided
 - [ ] Be able to move around and open files through the tree view
 - [ ] Get terminal emulator working
 - [ ] Get multiple terminal system up and running
-- [ ] Clean up, test out for a few weeks and add/remove features as needed
-- [ ] Format on save (Prettier for web stuff, clang-format for C and C++, and Black for Python)
-- [ ] Soft wrap choice
 - [ ] Resizing sucks
 - [ ] Fix paste to be faster (don't read chars just render?)
 
@@ -32,9 +31,9 @@ Although I would love to write my own in the future.
 
 Over the next couple months, I'll be working on adding the following, which are obviously all quite opinionated:
 
-- [ ] Different modes like Vim. Specifically, mostly normal, edit, and terminal mode for the moment.
-- [ ] Configuration file in `config.h`, with options for features like line numbers, Git gutters, and WakaTime integration (all things I use in my Vim config) 
-- [ ] Syntax highlighting for other programming languages besides C. The way the guide does syntax highlighting is quite frankly horrendous, but I can't think of a quicker way to do it without generating tokens for each language to categorize each term. I'll start by modularizing the syntax highlighting code and then adding a couple of languages that I use often, like Python and JavaScript.
+- [X] Different modes like Vim. Specifically, mostly normal, edit, and terminal mode for the moment.
+- [X] Configuration file in `config.h`, with options for features like line numbers, Git gutters, and WakaTime integration (all things I use in my Vim config) 
+- [X] Syntax highlighting for other programming languages besides C. The way the guide does syntax highlighting is quite frankly horrendous, but I can't think of a quicker way to do it without generating tokens for each language to categorize each term. I'll start by modularizing the syntax highlighting code and then adding a couple of languages that I use often, like Python and JavaScript.
 - [ ] A tree viewer. This should be relatively easy using `dirent.h` (not supported in Windows though) and adapting the code currently being used to track keystrokes to track moving through the file tree.
 - [ ] Tab system. I already use iTerm so I suppose I could just use `Command` + `number` to open a new tab, but I think it would be cool to have a tab system directly in Marrow where I can switch between editor views to edit different files. Split view can come later, if I'm so inclined. It's also important to deal with the case where there are more than 9 tabs? Probably using `;10` or something similar.
 - [ ] Terminal emulator? Not sure if I'm using the correct term. Vim uses `libvterm`, so I want to do a little more research into that.

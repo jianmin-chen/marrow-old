@@ -1,4 +1,6 @@
 test.*
+/test
 theme.h
 marrow
 buffer/buffer
+/.vscode

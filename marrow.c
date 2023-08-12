@@ -146,9 +146,10 @@ void render(void) {
                 int welcomelen =
                     snprintf(welcome, sizeof(welcome),
                              "Marrow editor -- version %s", MARROW_VERSION);
-                if (welcomelen > global.cols)
+                                
                     welcomelen = global.cols;
                 int padding = (global.cols - welcomelen) / 2;
+
                 if (padding) {
                     abAppend(&ab, "~", 1);
                     padding--;
