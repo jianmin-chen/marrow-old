@@ -16,6 +16,8 @@ enum keys {
     J = 106,
     K = 107,
     L = 108,
+    R = 114,
+    U = 117,
     W = 119,
     Z = 122,
     BACKSPACE = 127,
@@ -38,5 +40,7 @@ typedef struct keypress {
 } keypress;
 
 keypress *addKeystroke(int key, keypress *ptr);
+
+char *stringKeystroke(keypress *ptr);
 
 #endif

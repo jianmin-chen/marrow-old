@@ -1,7 +1,10 @@
 #include "../status/error.h"
+#include "../libs/buffer.h"
 #include <errno.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
+#include <math.h>
 
 #define CTRL_KEY(k) ((k)&0x1f)
 
@@ -12,11 +15,14 @@ enum keys {
     SLASH = 47,
     ZERO = 48,
     COLON = 58,
+    D = 100,
     H = 104,
     I = 105,
     J = 106,
     K = 107,
     L = 108,
+    R = 114,
+    U = 117,
     W = 119,
     Z = 122,
     BACKSPACE = 127,
@@ -122,6 +128,18 @@ keypress *lastKeystroke(keypress *ptr) {
 
 char *stringKeystroke(keypress *ptr) {
     // Convert stack of keystrokes to string
-    return "";
+    abuf ab = ABUF_INIT;
+    keypress *curr = ptr;
+    int i = 0;
+    while (curr != NULL) {
+        int ndigits = floor(log10(curr->key));
+        char buf[ndigits + 1];
+        int clen = snprintf(buf, sizeof(buf), "%i,", curr->key);
+        abAppend(&ab, buf, clen);
+        curr = curr->next;
+    }
+    abAppend(&ab, "\0", 1);
+
+    return ab.b;
 }
 

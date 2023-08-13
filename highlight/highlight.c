@@ -65,15 +65,15 @@ char *HTML_keywords[] = {NULL};
 
 char *JS_extensions[] = {".js", ".ts", ".cjs", ".mjs", NULL};
 char *JS_keywords[] = {
-    "await",      "break",    "case",       "catch",   "class",   "const",
-    "continue",   "debugger", "default",    "delete",  "do",      "else",
-    "enum",       "export",   "extends",    "finally", "for",     "function",
-    "get",        "if",       "implements", "import",  "in",      "instanceof",
-    "interface",  "let",      "new",        "package", "private", "protected",
-    "public",     "return",   "set", "super",      "switch",  "static",  "this",
-    "throw",      "try",      "true",       "typeof",  "var",     "void",
-    "while",      "with",     "yield",      "false|",  "null|",   "true|",
-    "undefined|", NULL};
+    "await",   "async",      "break",     "case",       "catch",      "class",
+    "const",   "continue",   "debugger",  "default",    "delete",     "do",
+    "else",    "enum",       "export",    "extends",    "finally",    "for",
+    "from",    "function",   "get",       "if",         "implements", "import",
+    "in",      "instanceof", "interface", "let",        "new",        "package",
+    "private", "protected",  "public",    "return",     "set",        "super",
+    "switch",  "static",     "this",      "throw",      "try",        "true",
+    "typeof",  "var",        "void",      "while",      "with",       "yield",
+    "false|",  "null|",      "true|",     "undefined|", NULL};
 
 char *PY_extensions[] = {".py", NULL};
 char *PY_keywords[] = {"await",

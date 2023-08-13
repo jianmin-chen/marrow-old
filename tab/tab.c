@@ -56,6 +56,7 @@ void dirty(tab *t);
 void tabBackup(tab *t);
 char *tabPrompt(tab *t, char *prompt, void (*render)(void),
                 int (*callback)(tab *t, char *, int), int onchange);
+int tabEditMode(tab *t, int key, void (*render)(void));
 
 /*** row operations ***/
 
@@ -386,19 +387,16 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     tab new;
     new.filename = strdup(filename);
     new.filetype = strrchr(filename, '.');
-    /*
+
     time_t t = time(NULL);
     struct tm *time;
     time = localtime(&t);
-    if (time == NULL) {
-        die("localtime");
-    }
-    new.swp = malloc(sizeof(char) * (16 + sizeof(new.filetype)));
-    strftime(new.swp, 11, ".%Y-%m-%d", time);
-    strcat(new.swp, "-");
+    if (time == NULL) die("localtime");
+    new.swp = malloc(sizeof(char) * (17 + strlen(filename)));
+    strftime(new.swp, 12, ".%Y-%m-%d-", time);
     strcat(new.swp, new.filename);
-    strcat(new.swp, ".swp");
-    */
+    strcat(new.swp, ".swp\0");
+
     new.syn = selectSyntaxHighlight(new.filename, new.filetype);
     new.keystrokes = NULL;
     new.numrows = 0;
@@ -468,7 +466,7 @@ char *tabRowsToString(tab *t, int *buflen) {
 
 void dirty(tab *t) {
     t->dirty++;
-    if (t->dirty % 5 == 0) {
+    if (t->dirty % 10 == 0) {
         // Every five changes save
         tabBackup(t);
     }
@@ -499,8 +497,10 @@ void tabSave(tab *t) {
 }
 
 void tabBackup(tab *t) {
-    // ? I think we should backup the keypresses instead? So you can revert
-    // ? keypresses but also backup at the same time
+    FILE *fptr = fopen(t->swp, "w");
+    if (fptr == NULL) die("fopen");
+    fprintf(fptr, "%s", stringKeystroke(t->keystrokes));
+    fclose(fptr);
 }
 
 void tabScroll(tab *t) {
@@ -925,6 +925,10 @@ int tabNormalMode(tab *t, int key, void (*render)(void)) {
     case D:
         tabPrompt(t, "d", render, tabDelete, 1);
         break;
+    case R:
+        break;
+    case U:
+        break;
     case Z:
         tabPrompt(t, "z", render, tabCenter, 1);
         break;
@@ -960,17 +964,16 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
     case CTRL_KEY('s'):
         tabSave(t);
         return EDIT;
-    }
-
-    addKeystroke(key, t->keystrokes);
-
-    switch (key) {
+    case U:
+        tabUndo(t);
+        return EDIT;
     case HOME_KEY:
         t->cx = 0;
         break;
     case END_KEY:
         if (t->cy < t->numrows)
             t->cx = t->rows[t->cy].size;
+         break;
     case PAGE_UP:
     case PAGE_DOWN: {
         if (key == PAGE_UP) {
@@ -1003,5 +1006,8 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
         dirty(t);
         break;
     }
+
+    t->keystrokes = addKeystroke(key, t->keystrokes);
+
     return EDIT;
 }

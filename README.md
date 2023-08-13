@@ -1,10 +1,10 @@
 ## TODO
 
-- [ ] Get backup (keypresses) and save working
-- [ ] Get Git gutters working: now
+- [ ] Get backup (keypresses) and save working: now
+- [ ] Get Git gutters working
 - [ ] Get Wakatime integration working (should we write scripts in a different lang to do these things or...?)
 - [ ] Soft wrap choice
-- [ ] `u` and `r` keystroke
+- [ ] `u` and `r` keystroke: now
 
 - [ ] Get tab system working, `;` and Ctrl+number to move between tabs
 - [ ] Get tree view similar to Vim's ":Ex" working, starting in the directory of the given file or just the default directory if one isn't provided
