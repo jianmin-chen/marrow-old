@@ -1,18 +1,19 @@
 ## TODO
 
 - [ ] Get backup (keypresses) and save working
-- [ ] Get Git gutters working
+- [ ] Get Git gutters working: now
 - [ ] Get Wakatime integration working (should we write scripts in a different lang to do these things or...?)
 - [ ] Soft wrap choice
-- [ ] `u` keystroke
+- [ ] `u` and `r` keystroke
 
 - [ ] Get tab system working, `;` and Ctrl+number to move between tabs
 - [ ] Get tree view similar to Vim's ":Ex" working, starting in the directory of the given file or just the default directory if one isn't provided
 - [ ] Be able to move around and open files through the tree view
+
+In the future? These are too complicated and require too much time dedication right now, although I do really want to implement them:
+
 - [ ] Get terminal emulator working
 - [ ] Get multiple terminal system up and running
-
-- [ ] Resizing sucks: now
 - [ ] Fix paste to be faster (don't read chars just render?)
 
 ## About

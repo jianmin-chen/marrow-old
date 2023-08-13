@@ -27,6 +27,7 @@ typedef struct row {
     char *render;
     unsigned char *hl;
     int hl_open_comment;
+    int changed;
 } row;
 
 typedef struct tab {
@@ -281,6 +282,7 @@ void tabInsertRow(tab *t, int at, char *s, size_t len) {
     t->rows[at].render = NULL;
     t->rows[at].hl = NULL;
     t->rows[at].hl_open_comment = 0;
+    t->rows[at].changed = 0;
 
     tabUpdateRow(t, &t->rows[at]);
 
@@ -308,6 +310,7 @@ void tabInsertNewline(tab *t) {
     if (t->cx == 0) {
         tabInsertRow(t, t->cy, "", 0);
         t->cx = 0;
+        if (MARROW_GIT_GUTTERS) t->rows[t->cy].changed = 1;
     } else {
         // Get number of tabs on current line and inject in
         row *r = &t->rows[t->cy];
@@ -316,13 +319,21 @@ void tabInsertNewline(tab *t) {
         char *c = &r->render[0];
         while (c[spaces] == ' ') spaces++;
 
-        int size = r->size - t->cx + spaces;
-        char *new = malloc(sizeof(char) * size);
-        for (int i = 0; i < spaces; i++) {
-            if (spaces - i > MARROW_TAB_STOP) {
-                // Can insert tab
-            }
-            strcat(new, " ");
+        // Now actually inject them in as a mix of tabs and spaces, depending on whether MARROW_TAB_STOP is defined
+        int size = r->size - t->cx;
+        char *new;
+        if (MARROW_TAB_STOP) {
+            int tabs = spaces / MARROW_TAB_STOP;
+            size += tabs;
+            spaces = spaces % MARROW_TAB_STOP;
+            size += spaces;
+            new = malloc(sizeof(char) * size);
+            for (int i = 0; i < tabs; i++) strcat(new, "\t");
+            for (int i = 0; i < spaces; i++) strcat(new, " ");
+        } else {
+            size += spaces;
+            new = malloc(sizeof(char) * size);
+            for (int i = 0; i < spaces; i++) strcat(new, " ");
         }
         strcat(new, &r->render[t->cx]);
         new[size] = '\0';
@@ -333,6 +344,7 @@ void tabInsertNewline(tab *t) {
         r = &t->rows[t->cy];
         r->size = t->cx;
         r->chars[r->size] = '\0';
+        if (MARROW_GIT_GUTTERS) r->changed = 1;
         tabUpdateRow(t, r);
 
         t->cx = size;
@@ -346,6 +358,10 @@ void tabInsertChar(tab *t, int c) {
     }
     tabRowInsertChar(t, &t->rows[t->cy], t->cx, c);
     t->cx++;
+    if (MARROW_GIT_GUTTERS) {
+        // Mark as changed
+        t->rows[t->cy].changed = 1;
+    }
 }
 
 void tabDelChar(tab *t) {
@@ -407,6 +423,14 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     FILE *fptr = fopen(filename, "r");
     if (!fptr)
         die("fopen");
+
+    // Get `git diff` for file if enabled
+    /*
+    if (MARROW_GIT_GUTTERS) {
+        int lines[1];
+        int linesChanged = gitdiff(filename, );
+    }
+    */
 
     char *line = NULL;
     size_t linecap = 0;
@@ -508,6 +532,7 @@ void drawTab(tab *t, abuf *ab) {
     int linelen;
     if (MARROW_LINE_NUMBERS) {
         linelen = floor(log10(t->screenrows + 1)) + 2;
+        if (MARROW_GIT_GUTTERS) linelen++;
         t->gutter = linelen + 1;
     }
 
@@ -515,24 +540,32 @@ void drawTab(tab *t, abuf *ab) {
     for (y = 0; y < t->screenrows; y++) {
         int filerow = y + t->rowoff;
         if (filerow >= t->numrows) {
+            if (t->gutter) {
+                for (int i = 0; i < t->gutter - 2; i++) abAppend(ab, " ", 1);
+            }
             abAppend(ab, "~", 1);
             abAppend(ab, "\x1b[K", 3);
             abAppend(ab, "\r\n", 2);
             continue;
         }
 
-        if (MARROW_GIT_GUTTERS) {
-            // Git diff information in gutter
+        int padding = 0;
 
+        if (MARROW_GIT_GUTTERS) {
+            if (t->rows[filerow].changed) {
+                abAppend(ab, "~", 1);
+                padding++;
+            }
         }
         
         if (MARROW_LINE_NUMBERS) {
             // Line numbers in gutter
             int ndigits = floor(log10(filerow + 1)) + 2;
             char buf[ndigits + 1];
-            while (ndigits <= linelen) {
+            padding += ndigits;
+            while (padding <= linelen) {
                 abAppend(ab, " ", 1);
-                ndigits++;
+                padding++;
             }
             int clen = snprintf(buf, sizeof(buf), "%i ", filerow + 1);
             abAppend(ab, buf, clen);
@@ -543,8 +576,8 @@ void drawTab(tab *t, abuf *ab) {
             int len = t->rows[filerow].rsize - t->coloff;
             if (len < 0)
                 len = 0;
-            if (len > t->screencols - t->gutter)
-                len = t->screencols - t->gutter;
+            if (len > t->screencols - linelen)
+                len = t->screencols - linelen;
             char *c = &t->rows[filerow].render[t->coloff];
             unsigned char *hl = &t->rows[filerow].hl[t->coloff];
             int current_color = -1;

@@ -37,8 +37,7 @@ enum highlight {
     HL_MATCH
 };
 
-#ifdef MARROW_THEME
-#else
+#ifndef MARROW_THEME
 colors DEFAULT_THEME = {-1, 37, 33, 32, 35, 31, 34, 36};
 colors *theme = &DEFAULT_THEME;
 char *themeName = "default";
@@ -66,14 +65,15 @@ char *HTML_keywords[] = {NULL};
 
 char *JS_extensions[] = {".js", ".ts", ".cjs", ".mjs", NULL};
 char *JS_keywords[] = {
-    "await",    "break",      "case",    "catch",   "class",      "const",
-    "continue", "debugger",   "default", "delete",  "do",         "else",
-    "enum",     "export",     "extends", "finally", "for",        "function",
-    "if",       "implements", "import",  "in",      "instanceof", "interface",
-    "let",      "new",        "package", "private", "protected",  "public",
-    "return",   "super",      "switch",  "static",  "this",       "throw",
-    "try",      "true",       "typeof",  "var",     "void",       "while",
-    "with",     "yield",      "false|",  "null|",   "true|",      NULL};
+    "await",      "break",    "case",       "catch",   "class",   "const",
+    "continue",   "debugger", "default",    "delete",  "do",      "else",
+    "enum",       "export",   "extends",    "finally", "for",     "function",
+    "get",        "if",       "implements", "import",  "in",      "instanceof",
+    "interface",  "let",      "new",        "package", "private", "protected",
+    "public",     "return",   "set", "super",      "switch",  "static",  "this",
+    "throw",      "try",      "true",       "typeof",  "var",     "void",
+    "while",      "with",     "yield",      "false|",  "null|",   "true|",
+    "undefined|", NULL};
 
 char *PY_extensions[] = {".py", NULL};
 char *PY_keywords[] = {"await",
@@ -176,7 +176,7 @@ int syntaxToColor(colors *theme, int hl) {
 syntax *selectSyntaxHighlight(char *filename, char *filetype) {
     if (filename == NULL)
         return NULL;
-    
+
     syntax *s = malloc(sizeof(syntax));
     s->filetype = NULL;
     s->filematch = NULL;
@@ -208,31 +208,30 @@ syntax *selectSyntaxHighlight(char *filename, char *filetype) {
 
 int handler(void *c, const char *section, const char *name, const char *value) {
 #define MATCH(s, n) strcmp(section, s) == 0 && strcmp(name, n) == 0
-	if (MATCH(themeName, "normal")) {
-		theme->normal = atoi(value);
-	} else if (MATCH(themeName, "keyword")) {
-		theme->keyword = atoi(value);
-	} else if (MATCH(themeName, "type")) {
-		theme->type = atoi(value);
-	} else if (MATCH(themeName, "string")) {
-		theme->string = atoi(value);
-	} else if (MATCH(themeName, "number")) {
-		theme->number = atoi(value);
-	} else if (MATCH(themeName, "match")) {
-		theme->match = atoi(value);
-	} else if (MATCH(themeName, "comment")) {
-		theme->comment = atoi(value);
-	}
-	return 0;
+    if (MATCH(themeName, "normal")) {
+        theme->normal = atoi(value);
+    } else if (MATCH(themeName, "keyword")) {
+        theme->keyword = atoi(value);
+    } else if (MATCH(themeName, "type")) {
+        theme->type = atoi(value);
+    } else if (MATCH(themeName, "string")) {
+        theme->string = atoi(value);
+    } else if (MATCH(themeName, "number")) {
+        theme->number = atoi(value);
+    } else if (MATCH(themeName, "match")) {
+        theme->match = atoi(value);
+    } else if (MATCH(themeName, "comment")) {
+        theme->comment = atoi(value);
+    }
+    return 0;
 }
 
 // Given a syntax struct and an INI file containing the themes load the themes
 // into syntax->themes
 void loadTheme(char *name) {
-	themeName = name;
-	
-	if (ini_parse(HL_HIGHLIGHT_LOCATION, handler, &theme) < 0) {
-		die("Unable to load theme");
-	}
-}
+    themeName = name;
 
+    if (ini_parse(HL_HIGHLIGHT_LOCATION, handler, &theme) < 0) {
+        die("Unable to load theme");
+    }
+}

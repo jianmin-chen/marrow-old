@@ -16,6 +16,7 @@ typedef struct row {
     char *render;
     unsigned char *hl;
     int hl_open_comment;
+    int changed;
 } row;
 
 typedef struct tab {
