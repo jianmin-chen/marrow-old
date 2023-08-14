@@ -35,11 +35,14 @@ enum keys {
 int editorReadKey(void);
 
 typedef struct keypress {
+    char associated;
     int key;
     struct keypress *next;
 } keypress;
 
-keypress *addKeystroke(int key, keypress *ptr);
+keypress *addKeystroke(int key, keypress *ptr, char associated);
+
+keypress *lastKeystroke(keypress *ptr);
 
 char *stringKeystroke(keypress *ptr);
 

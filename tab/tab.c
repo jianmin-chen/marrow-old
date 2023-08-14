@@ -57,6 +57,7 @@ void tabBackup(tab *t);
 char *tabPrompt(tab *t, char *prompt, void (*render)(void),
                 int (*callback)(tab *t, char *, int), int onchange);
 int tabEditMode(tab *t, int key, void (*render)(void));
+int tabCenter(tab *t, char *buf, int key);
 
 /*** row operations ***/
 
@@ -517,9 +518,10 @@ void tabScroll(tab *t) {
     if (t->cy < t->numrows)
         t->rx = rowCxToRx(&t->rows[t->cy], t->cx);
 
-    if (t->cy < t->rowoff)
+    if (MARROW_CENTER) tabCenter(t, "z", 0);
+    else if (t->cy < t->rowoff)
         t->rowoff = t->cy;
-    if (t->cy >= t->rowoff + t->screenrows)
+    else if (t->cy >= t->rowoff + t->screenrows)
         t->rowoff = t->cy - t->screenrows + 1;
     if (t->rx < t->coloff)
         t->coloff = t->rx;
@@ -734,8 +736,6 @@ int tabDelete(tab *t, char *buf, int key) {
     return 1;
 }
 
-void tabUndo(tab *t) {}
-
 int tabCommand(tab *t, char *buf, int key) {
     int jump = 1;
     for (unsigned long i = 0; i < strlen(buf); i++) {
@@ -904,6 +904,29 @@ char *tabPrompt(tab *t, char *prompt, void (*render)(void),
 
 /*** modes ***/
 
+void tabUndo(tab *t) {
+    // "Mode" for undoing but not really
+    return;
+    keypress *last = lastKeystroke(t->keystrokes);
+    switch (last->key) {
+        case CTRL_KEY('s'):
+        case HOME_KEY:
+        case END_KEY:
+        case PAGE_UP:
+        case PAGE_DOWN:
+        case ARROW_UP:
+        case ARROW_DOWN:
+        case ARROW_LEFT:
+        case ARROW_RIGHT:
+            tabUndo(t);  // Keep reverting keystroke until we find one that actually edited the thing
+            break;
+        case BACKSPACE:
+        case CTRL_KEY('h'):
+        case DEL_KEY:
+            if (last->key == DEL_KEY) tabMoveCursor(t, ARROW_LEFT);
+    }
+}
+
 int tabNormalMode(tab *t, int key, void (*render)(void)) {
     switch (key) {
     case CTRL_KEY('s'):
@@ -938,6 +961,7 @@ int tabNormalMode(tab *t, int key, void (*render)(void)) {
     case R:
         break;
     case U:
+        // tabUndo(t);
         break;
     case Z:
         tabPrompt(t, "z", render, tabCenter, 1);
@@ -974,9 +998,6 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
     case CTRL_KEY('s'):
         tabSave(t);
         return EDIT;
-    case U:
-        tabUndo(t);
-        return EDIT;
     case HOME_KEY:
         t->cx = 0;
         break;
@@ -1000,6 +1021,9 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
     case ARROW_RIGHT:
         tabMoveCursor(t, key);
         break;
+    case '\r':
+        tabInsertNewline(t);
+        break;
     case BACKSPACE:
     case CTRL_KEY('h'):
     case DEL_KEY:
@@ -1008,16 +1032,13 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
         tabDelChar(t);
         dirty(t);
         break;
-    case '\r':
-        tabInsertNewline(t);
-        break;
     default:
         tabInsertChar(t, key);
         dirty(t);
         break;
     }
 
-    t->keystrokes = addKeystroke(key, t->keystrokes);
+    t->keystrokes = addKeystroke(key, t->keystrokes, NULL);
 
     return EDIT;
 }

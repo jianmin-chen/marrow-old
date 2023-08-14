@@ -29,7 +29,6 @@ void gitdiff(char *dirname) {
 
     for (int i = 0; i < fsize; i++) {
         if (s[i] != '@' || s[i - 1] != '\n') continue;
-
     }
 
     free(s);

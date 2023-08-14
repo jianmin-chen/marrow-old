@@ -1,5 +1,5 @@
 #ifndef UTILS_H
-#define UTIlS_H
+#define UTILS_H
 
 char *run(char *command);
 

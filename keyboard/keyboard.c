@@ -108,14 +108,17 @@ int editorReadKey(void) {
 
 // Storing keypresses in a stack
 typedef struct keypress {
+    char associated;
     int key;
     struct keypress *next;
 } keypress;
 
-keypress *addKeystroke(int key, keypress *ptr) {
+keypress *addKeystroke(int key, keypress *ptr, char associated) {
     keypress *k = malloc(sizeof(keypress));
     k->key = key;
     k->next = ptr;
+    if (associated != NULL) k->associated = associated;
+    else k->associated = key;
     return k;
 }
 
