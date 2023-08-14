@@ -9,13 +9,13 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <math.h>
 
 /*** defines ***/
 
@@ -311,16 +311,19 @@ void tabInsertNewline(tab *t) {
     if (t->cx == 0) {
         tabInsertRow(t, t->cy, "", 0);
         t->cx = 0;
-        if (MARROW_GIT_GUTTERS) t->rows[t->cy].changed = 1;
+        if (MARROW_GIT_GUTTERS)
+            t->rows[t->cy].changed = 1;
     } else {
         // Get number of tabs on current line and inject in
         row *r = &t->rows[t->cy];
 
         int spaces = 0;
         char *c = &r->render[0];
-        while (c[spaces] == ' ') spaces++;
+        while (c[spaces] == ' ')
+            spaces++;
 
-        // Now actually inject them in as a mix of tabs and spaces, depending on whether MARROW_TAB_STOP is defined
+        // Now actually inject them in as a mix of tabs and spaces, depending on
+        // whether MARROW_TAB_STOP is defined
         int size = r->size - t->cx;
         char *new;
         if (MARROW_TAB_STOP) {
@@ -329,23 +332,27 @@ void tabInsertNewline(tab *t) {
             spaces = spaces % MARROW_TAB_STOP;
             size += spaces;
             new = malloc(sizeof(char) * size);
-            for (int i = 0; i < tabs; i++) strcat(new, "\t");
-            for (int i = 0; i < spaces; i++) strcat(new, " ");
+            for (int i = 0; i < tabs; i++)
+                strcat(new, "\t");
+            for (int i = 0; i < spaces; i++)
+                strcat(new, " ");
         } else {
             size += spaces;
             new = malloc(sizeof(char) * size);
-            for (int i = 0; i < spaces; i++) strcat(new, " ");
+            for (int i = 0; i < spaces; i++)
+                strcat(new, " ");
         }
         strcat(new, &r->render[t->cx]);
         new[size] = '\0';
 
         tabInsertRow(t, t->cy + 1, new, size);
-        
+
         // Update previous row
         r = &t->rows[t->cy];
         r->size = t->cx;
         r->chars[r->size] = '\0';
-        if (MARROW_GIT_GUTTERS) r->changed = 1;
+        if (MARROW_GIT_GUTTERS)
+            r->changed = 1;
         tabUpdateRow(t, r);
 
         t->cx = size;
@@ -391,7 +398,8 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     time_t t = time(NULL);
     struct tm *time;
     time = localtime(&t);
-    if (time == NULL) die("localtime");
+    if (time == NULL)
+        die("localtime");
     new.swp = malloc(sizeof(char) * (17 + strlen(filename)));
     strftime(new.swp, 12, ".%Y-%m-%d-", time);
     strcat(new.swp, new.filename);
@@ -498,7 +506,8 @@ void tabSave(tab *t) {
 
 void tabBackup(tab *t) {
     FILE *fptr = fopen(t->swp, "w");
-    if (fptr == NULL) die("fopen");
+    if (fptr == NULL)
+        die("fopen");
     fprintf(fptr, "%s", stringKeystroke(t->keystrokes));
     fclose(fptr);
 }
@@ -514,15 +523,14 @@ void tabScroll(tab *t) {
         t->rowoff = t->cy - t->screenrows + 1;
     if (t->rx < t->coloff)
         t->coloff = t->rx;
-    if (t->rx >= t->coloff + t->screencols)
-        t->coloff = t->rx - t->screencols + 1;
+    if (t->rx >= t->coloff + t->screencols - t->gutter)
+        t->coloff = t->rx - t->screencols + t->gutter + 1;
 }
 
 void drawTabCursor(tab *t, abuf *ab) {
     char buf[32];
-    snprintf(buf, sizeof(buf), "\x1b[%d;%dH",
-                (t->cy - t->rowoff) + 1,
-                (t->rx - t->coloff + t->gutter) + 1);
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (t->cy - t->rowoff) + 1,
+             (t->rx - t->coloff + t->gutter) + 1);
     abAppend(ab, buf, strlen(buf));
 }
 
@@ -532,7 +540,8 @@ void drawTab(tab *t, abuf *ab) {
     int linelen;
     if (MARROW_LINE_NUMBERS) {
         linelen = floor(log10(t->screenrows + 1)) + 2;
-        if (MARROW_GIT_GUTTERS) linelen++;
+        if (MARROW_GIT_GUTTERS)
+            linelen++;
         t->gutter = linelen + 1;
     }
 
@@ -541,7 +550,8 @@ void drawTab(tab *t, abuf *ab) {
         int filerow = y + t->rowoff;
         if (filerow >= t->numrows) {
             if (t->gutter) {
-                for (int i = 0; i < t->gutter - 2; i++) abAppend(ab, " ", 1);
+                for (int i = 0; i < t->gutter - 2; i++)
+                    abAppend(ab, " ", 1);
             }
             abAppend(ab, "~", 1);
             abAppend(ab, "\x1b[K", 3);
@@ -551,13 +561,11 @@ void drawTab(tab *t, abuf *ab) {
 
         int padding = 0;
 
-        if (MARROW_GIT_GUTTERS) {
-            if (t->rows[filerow].changed) {
-                abAppend(ab, "~", 1);
-                padding++;
-            }
+        if (MARROW_GIT_GUTTERS && t->rows[filerow].changed) {
+            abAppend(ab, "~", 1);
+            padding++;
         }
-        
+
         if (MARROW_LINE_NUMBERS) {
             // Line numbers in gutter
             int ndigits = floor(log10(filerow + 1)) + 2;
@@ -576,8 +584,8 @@ void drawTab(tab *t, abuf *ab) {
             int len = t->rows[filerow].rsize - t->coloff;
             if (len < 0)
                 len = 0;
-            if (len > t->screencols - linelen)
-                len = t->screencols - linelen;
+            if (len > t->screencols - t->gutter) 
+                len = t->screencols - t->gutter;
             char *c = &t->rows[filerow].render[t->coloff];
             unsigned char *hl = &t->rows[filerow].hl[t->coloff];
             int current_color = -1;
@@ -725,6 +733,8 @@ int tabDelete(tab *t, char *buf, int key) {
 
     return 1;
 }
+
+void tabUndo(tab *t) {}
 
 int tabCommand(tab *t, char *buf, int key) {
     int jump = 1;
@@ -973,7 +983,7 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
     case END_KEY:
         if (t->cy < t->numrows)
             t->cx = t->rows[t->cy].size;
-         break;
+        break;
     case PAGE_UP:
     case PAGE_DOWN: {
         if (key == PAGE_UP) {

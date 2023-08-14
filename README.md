@@ -1,20 +1,13 @@
 ## TODO
 
-- [ ] Get backup (keypresses) and save working: now
+- [ ] Get backup (keypresses) and save working
 - [ ] Get Git gutters working
-- [ ] Get Wakatime integration working (should we write scripts in a different lang to do these things or...?)
+- [ ] Get Wakatime integration working (should we write scripts in a different lang to do these things or...?): now
 - [ ] Soft wrap choice
-- [ ] `u` and `r` keystroke: now
-
+- [ ] `u` and `r` keystroke
 - [ ] Get tab system working, `;` and Ctrl+number to move between tabs
 - [ ] Get tree view similar to Vim's ":Ex" working, starting in the directory of the given file or just the default directory if one isn't provided
 - [ ] Be able to move around and open files through the tree view
-
-In the future? These are too complicated and require too much time dedication right now, although I do really want to implement them:
-
-- [ ] Get terminal emulator working
-- [ ] Get multiple terminal system up and running
-- [ ] Fix paste to be faster (don't read chars just render?)
 
 ## About
 
@@ -29,12 +22,12 @@ Although I would love to write my own in the future.
 
 Over the next couple months, I'll be working on adding the following, which are obviously all quite opinionated:
 
-- [X] Different modes like Vim. Specifically, mostly normal, edit, and terminal mode for the moment.
+- [X] Different modes like Vim.
 - [X] Configuration file in `config.h`, with options for features like line numbers, Git gutters, and WakaTime integration (all things I use in my Vim config) 
 - [X] Syntax highlighting for other programming languages besides C. The way the guide does syntax highlighting is quite frankly horrendous, but I can't think of a quicker way to do it without generating tokens for each language to categorize each term. I'll start by modularizing the syntax highlighting code and then adding a couple of languages that I use often, like Python and JavaScript.
-- [ ] A tree viewer. This should be relatively easy using `dirent.h` (not supported in Windows though) and adapting the code currently being used to track keystrokes to track moving through the file tree.
-- [ ] Tab system. I already use iTerm so I suppose I could just use `Command` + `number` to open a new tab, but I think it would be cool to have a tab system directly in Marrow where I can switch between editor views to edit different files. Split view can come later, if I'm so inclined. It's also important to deal with the case where there are more than 9 tabs? Probably using `;10` or something similar.
-- [ ] Terminal emulator? Not sure if I'm using the correct term. Vim uses `libvterm`, so I want to do a little more research into that.
+- [X] A tree viewer. This should be relatively easy using `dirent.h` (not supported in Windows though) and adapting the code currently being used to track keystrokes to track moving through the file tree.
+- [X] Tab system. Split view can come later, if I'm so inclined.
+- [ ] Terminal emulator? Wrapper around `libvterm`, except I don't know how to get started.
 - [ ] Command system with search in a file
 
 These are all features I use in Vim/VSCode on a daily basis and thought would be useful to add on. 
