@@ -54,3 +54,7 @@ tree *loadTree(char *dirname) {
     }
     return t;
 }
+
+void drawTree(tree *t, abuf *ab) {
+    int y;
+}

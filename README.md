@@ -1,14 +1,14 @@
 ## TODO
 
 - [ ] Get backup (keypresses) and save working
+- [ ] `u` and `r` keystroke
 - [ ] Get Git gutters working
 - [ ] Soft wrap choice
-- [ ] `u` and `r` keystroke
 - [ ] Support highlighting ticks in JavaScript
 - [ ] Load config into memory instead of directly working with it + add support for updating config
-- [ ] Get tab system working, `;` and Ctrl+number to move between tabs
 - [ ] Get tree view similar to Vim's ":Ex" working, starting in the directory of the given file or just the default directory if one isn't provided
 - [ ] Be able to move around and open files through the tree view
+- [ ] Get tab system working, `;` and Ctrl+number to move between tabs
 
 ## About
 

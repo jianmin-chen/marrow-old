@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -127,7 +128,7 @@ static void resize(int sig) {
         global.rows -= 2;
         activeTab->screenrows = global.rows;
         activeTab->screencols = global.cols;
-        
+
         render();
     }
 }
@@ -183,7 +184,13 @@ void render(void) {
     } else {
         tab *activeTab = &global.tabs[global.activetab];
 
-        drawTab(activeTab, &ab);
+        tabScroll(activeTab);
+        for (int y = 0; y < global.rows; y++) {
+            drawTabLine(activeTab, &ab, y);
+        }
+
+        // Draw file status bar
+        drawTabBar(activeTab, &ab);
 
         // Draw message bar (status bar, whatever you want to call it)
         drawStatusBar(&global.bar, &ab, global.cols);
@@ -215,7 +222,16 @@ void process(int key) {
     }
 }
 
-void update(void) {}
+void update(void) {
+    tab *activeTab = &global.tabs[global.activetab];
+    int linelen;
+    if (MARROW_LINE_NUMBERS) {
+        linelen = floor(log10(activeTab->screenrows + 1)) + 2;
+        if (MARROW_GIT_GUTTERS)
+            linelen++;
+        activeTab->gutter = linelen + 2;
+    }
+}
 
 int main(int argc, char *argv[]) {
     enableRawMode();
@@ -228,6 +244,7 @@ int main(int argc, char *argv[]) {
     }
 
     signal(SIGWINCH, resize);
+    update();
 
     while (1) {
         render();

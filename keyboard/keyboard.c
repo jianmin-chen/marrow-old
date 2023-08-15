@@ -117,8 +117,7 @@ keypress *addKeystroke(int key, keypress *ptr, char associated) {
     keypress *k = malloc(sizeof(keypress));
     k->key = key;
     k->next = ptr;
-    if (associated != NULL) k->associated = associated;
-    else k->associated = key;
+    k->associated = associated;
     return k;
 }
 

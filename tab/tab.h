@@ -50,7 +50,9 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s);
 
 void drawTabCursor(tab *t, abuf *ab);
 
-void drawTab(tab *t, abuf *ab);
+void drawTabLine(tab *t, abuf *ab, int y);
+
+void drawTabBar(tab *t, abuf *ab);
 
 int tabNormalMode(tab *t, int key, void (*render)(void));
 

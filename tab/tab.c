@@ -518,7 +518,8 @@ void tabScroll(tab *t) {
     if (t->cy < t->numrows)
         t->rx = rowCxToRx(&t->rows[t->cy], t->cx);
 
-    if (MARROW_CENTER) tabCenter(t, "z", 0);
+    if (MARROW_CENTER)
+        tabCenter(t, "z", 0);
     else if (t->cy < t->rowoff)
         t->rowoff = t->cy;
     else if (t->cy >= t->rowoff + t->screenrows)
@@ -536,109 +537,100 @@ void drawTabCursor(tab *t, abuf *ab) {
     abAppend(ab, buf, strlen(buf));
 }
 
-void drawTab(tab *t, abuf *ab) {
-    tabScroll(t);
-
-    int linelen;
-    if (MARROW_LINE_NUMBERS) {
-        linelen = floor(log10(t->screenrows + 1)) + 2;
-        if (MARROW_GIT_GUTTERS)
-            linelen++;
-        t->gutter = linelen + 1;
+void drawTabLine(tab *t, abuf *ab, int y) {
+    int filerow = y + t->rowoff;
+    if (filerow >= t->numrows) {
+        if (t->gutter) {
+            for (int i = 0; i < t->gutter - 2; i++) {
+                abAppend(ab, " ", 1);
+            }
+        }
+        abAppend(ab, "~", 1);
+        abAppend(ab, "\x1b[K", 3);
+        abAppend(ab, "\r\n", 2);
+        return;
     }
 
-    int y;
-    for (y = 0; y < t->screenrows; y++) {
-        int filerow = y + t->rowoff;
-        if (filerow >= t->numrows) {
-            if (t->gutter) {
-                for (int i = 0; i < t->gutter - 2; i++)
-                    abAppend(ab, " ", 1);
-            }
-            abAppend(ab, "~", 1);
-            abAppend(ab, "\x1b[K", 3);
-            abAppend(ab, "\r\n", 2);
-            continue;
-        }
+    int linelen = t->gutter - 1;
+    int padding = 0;
 
-        int padding = 0;
+    if (MARROW_GIT_GUTTERS && t->rows[filerow].changed) {
+        abAppend(ab, "~ ", 2);
+        padding += 2;
+    }
 
-        if (MARROW_GIT_GUTTERS && t->rows[filerow].changed) {
-            abAppend(ab, "~", 1);
+    if (MARROW_LINE_NUMBERS) {
+        // Line numbers in gutter
+        int ndigits = floor(log10(filerow + 1)) + 2;
+        char buf[ndigits + 1];
+        padding += ndigits;
+        while (padding <= linelen) {
+            abAppend(ab, " ", 1);
             padding++;
         }
+        int clen = snprintf(buf, sizeof(buf), "%i ", filerow + 1);
+        abAppend(ab, buf, clen);
+    }
 
-        if (MARROW_LINE_NUMBERS) {
-            // Line numbers in gutter
-            int ndigits = floor(log10(filerow + 1)) + 2;
-            char buf[ndigits + 1];
-            padding += ndigits;
-            while (padding <= linelen) {
-                abAppend(ab, " ", 1);
-                padding++;
-            }
-            int clen = snprintf(buf, sizeof(buf), "%i ", filerow + 1);
-            abAppend(ab, buf, clen);
-        }
-
-        if (t->syn) {
-            // Syntax highlighting enabled
-            int len = t->rows[filerow].rsize - t->coloff;
-            if (len < 0)
-                len = 0;
-            if (len > t->screencols - t->gutter) 
-                len = t->screencols - t->gutter;
-            char *c = &t->rows[filerow].render[t->coloff];
-            unsigned char *hl = &t->rows[filerow].hl[t->coloff];
-            int current_color = -1;
-            int j;
-            for (j = 0; j < len; j++) {
-                if (iscntrl(c[j])) {
-                    // Control character, highlight differently
-                    char sym = (c[j] <= 26 ? '@' + c[j] : '?');
-                    abAppend(ab, "\x1b[7m", 4);
-                    abAppend(ab, &sym, 1);
-                    abAppend(ab, "\x1b[m", 3);
-                    if (current_color != -1) {
-                        char buf[16];
-                        int clen = snprintf(buf, sizeof(buf), "\x1b[%dm",
-                                            current_color);
-                        abAppend(ab, buf, clen);
-                    }
-                } else {
-                    int color = syntaxToColor(theme, hl[j]);
-                    if (color != current_color) {
-                        current_color = color;
-                        char buf[16];
-                        int clen =
-                            snprintf(buf, sizeof(buf), "\x1b[%dm", color);
-                        abAppend(ab, buf, clen);
-                    }
-                    abAppend(ab, &c[j], 1);
+    if (t->syn) {
+        // Syntax highlighting enabled
+        int len = t->rows[filerow].rsize - t->coloff;
+        if (len < 0)
+            len = 0;
+        if (len > t->screencols - t->gutter)
+            len = t->screencols - t->gutter;
+        char *c = &t->rows[filerow].render[t->coloff];
+        unsigned char *hl = &t->rows[filerow].hl[t->coloff];
+        int current_color = -1;
+        int j;
+        for (j = 0; j < len; j++) {
+            if (iscntrl(c[j])) {
+                // Control character, highlight differently
+                char sym = (c[j] <= 26 ? '@' + c[j] : '?');
+                abAppend(ab, "\x1b[7m", 4);
+                abAppend(ab, &sym, 1);
+                abAppend(ab, "\x1b[m", 3);
+                if (current_color != -1) {
+                    char buf[16];
+                    int clen =
+                        snprintf(buf, sizeof(buf), "\x1b[%dm", current_color);
+                    abAppend(ab, buf, clen);
                 }
-            }
-            abAppend(ab, "\x1b[39m", 5);
-        } else {
-            // No syntax highlighting
-            int len = t->rows[filerow].rsize - t->coloff;
-            if (len < 0)
-                len = 0;
-            if (len > t->screencols)
-                len = t->screencols;
-            char *c = &t->rows[filerow].render[t->coloff];
-            int j;
-            for (j = 0; j < len; j++) {
+            } else {
+                int color = syntaxToColor(theme, hl[j]);
+                if (color != current_color) {
+                    current_color = color;
+                    char buf[16];
+                    int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+                    abAppend(ab, buf, clen);
+                }
                 abAppend(ab, &c[j], 1);
             }
         }
-
-        abAppend(ab, "\x1b[K", 3);
-        abAppend(ab, "\r\n", 2);
+        abAppend(ab, "\x1b[39m", 5);
+    } else {
+        // No syntax highlighting
+        int len = t->rows[filerow].rsize - t->coloff;
+        if (len < 0)
+            len = 0;
+        if (len > t->screencols)
+            len = t->screencols;
+        char *c = &t->rows[filerow].render[t->coloff];
+        int j;
+        for (j = 0; j < len; j++) {
+            abAppend(ab, &c[j], 1);
+        }
     }
 
+    abAppend(ab, "\x1b[K", 3);
+    abAppend(ab, "\r\n", 2);
+}
+
+void drawTabBar(tab *t, abuf *ab) {
     // Draw status bar
     abAppend(ab, "\x1b[7m", 4);
     char status[80], rstatus[80];
+
     int len = snprintf(status, sizeof(status), "%.20s - %d lines %s",
                        t->filename ? t->filename : "[No Name]", t->numrows,
                        t->dirty ? "(modified)" : "");
@@ -909,21 +901,23 @@ void tabUndo(tab *t) {
     return;
     keypress *last = lastKeystroke(t->keystrokes);
     switch (last->key) {
-        case CTRL_KEY('s'):
-        case HOME_KEY:
-        case END_KEY:
-        case PAGE_UP:
-        case PAGE_DOWN:
-        case ARROW_UP:
-        case ARROW_DOWN:
-        case ARROW_LEFT:
-        case ARROW_RIGHT:
-            tabUndo(t);  // Keep reverting keystroke until we find one that actually edited the thing
-            break;
-        case BACKSPACE:
-        case CTRL_KEY('h'):
-        case DEL_KEY:
-            if (last->key == DEL_KEY) tabMoveCursor(t, ARROW_LEFT);
+    case CTRL_KEY('s'):
+    case HOME_KEY:
+    case END_KEY:
+    case PAGE_UP:
+    case PAGE_DOWN:
+    case ARROW_UP:
+    case ARROW_DOWN:
+    case ARROW_LEFT:
+    case ARROW_RIGHT:
+        tabUndo(t); // Keep reverting keystroke until we find one that actually
+                    // edited the thing
+        break;
+    case BACKSPACE:
+    case CTRL_KEY('h'):
+    case DEL_KEY:
+        if (last->key == DEL_KEY)
+            tabMoveCursor(t, ARROW_LEFT);
     }
 }
 
@@ -1038,7 +1032,7 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
         break;
     }
 
-    t->keystrokes = addKeystroke(key, t->keystrokes, NULL);
+    t->keystrokes = addKeystroke(key, t->keystrokes, '\0');
 
     return EDIT;
 }
