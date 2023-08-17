@@ -197,6 +197,10 @@ void tabUpdateSyntax(tab *t, row *r) {
             if (isdigit(c) && (prev_sep || prev_hl == HL_NUMBER)) {
                 r->hl[i] = HL_NUMBER;
                 i++;
+                if (!strncmp(&r->render[i], ".", 1)) {
+                    r->hl[i] = HL_NUMBER;
+                    i++;
+                }
                 prev_sep = 0;
                 continue;
             }
@@ -509,7 +513,10 @@ void tabBackup(tab *t) {
     FILE *fptr = fopen(t->swp, "w");
     if (fptr == NULL)
         die("fopen");
-    fprintf(fptr, "%s", stringKeystroke(t->keystrokes));
+    abuf output = stringKeystroke(t->keystrokes);
+    for (int i = 0; i < output.len; i++) {
+        fprintf(fptr, "%c", output.b[i]);
+    }
     fclose(fptr);
 }
 
@@ -613,8 +620,8 @@ void drawTabLine(tab *t, abuf *ab, int y) {
         int len = t->rows[filerow].rsize - t->coloff;
         if (len < 0)
             len = 0;
-        if (len > t->screencols)
-            len = t->screencols;
+        if (len > t->screencols - t->gutter)
+            len = t->screencols - t->gutter;
         char *c = &t->rows[filerow].render[t->coloff];
         int j;
         for (j = 0; j < len; j++) {
@@ -901,17 +908,16 @@ void tabUndo(tab *t) {
     return;
     keypress *last = lastKeystroke(t->keystrokes);
     switch (last->key) {
-    case CTRL_KEY('s'):
     case HOME_KEY:
     case END_KEY:
     case PAGE_UP:
     case PAGE_DOWN:
+        break;
     case ARROW_UP:
     case ARROW_DOWN:
     case ARROW_LEFT:
     case ARROW_RIGHT:
-        tabUndo(t); // Keep reverting keystroke until we find one that actually
-                    // edited the thing
+        tabMoveCursor(t, last->key);
         break;
     case BACKSPACE:
     case CTRL_KEY('h'):
@@ -955,7 +961,7 @@ int tabNormalMode(tab *t, int key, void (*render)(void)) {
     case R:
         break;
     case U:
-        // tabUndo(t);
+        tabUndo(t);
         break;
     case Z:
         tabPrompt(t, "z", render, tabCenter, 1);

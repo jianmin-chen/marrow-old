@@ -4,3 +4,4 @@ theme.h
 marrow
 buffer/buffer
 /.vscode
+.DS_Store

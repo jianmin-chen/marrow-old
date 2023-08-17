@@ -128,20 +128,28 @@ keypress *lastKeystroke(keypress *ptr) {
     return k; // Make sure to free this!
 }
 
-char *stringKeystroke(keypress *ptr) {
+abuf stringKeystroke(keypress *ptr) {
     // Convert stack of keystrokes to string
     abuf ab = ABUF_INIT;
     keypress *curr = ptr;
     int i = 0;
     while (curr != NULL) {
         int ndigits = floor(log10(curr->key));
-        char buf[ndigits + 1];
-        int clen = snprintf(buf, sizeof(buf), "%i,", curr->key);
+        char *buf;
+        int clen;
+        if (curr->next != NULL) {
+            buf = malloc(sizeof(char) * (ndigits + 1));
+            clen = snprintf(buf, sizeof(buf), "%i,", curr->key);
+        } else {
+            buf = malloc(sizeof(char) * ndigits);
+            clen = snprintf(buf, sizeof(buf), "%i", curr->key);
+        }
+
         abAppend(&ab, buf, clen);
+
         curr = curr->next;
     }
-    abAppend(&ab, "\0", 1);
 
-    return ab.b;
+    return ab;
 }
 

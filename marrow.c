@@ -10,6 +10,7 @@
 #include "./status/error.h"
 #include "./status/status.h"
 #include "./tab/tab.h"
+#include "./tree/tree.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -36,6 +37,7 @@ typedef struct workspaceConfig {
     int activetab;
     int numtabs;
     tab *tabs;
+    tree filetree;
     status bar;
     int rows;
     int cols;
@@ -137,6 +139,7 @@ void initWorkspace(void) {
     global.activetab = -1;
     global.numtabs = 0;
     global.tabs = NULL;
+    global.filetree = loadTree(".");
     global.bar.statusmsg[0] = '\0';
     global.bar.statusmsg_time = 0;
     global.rows = 0;
@@ -185,8 +188,10 @@ void render(void) {
         tab *activeTab = &global.tabs[global.activetab];
 
         tabScroll(activeTab);
+
         for (int y = 0; y < global.rows; y++) {
             drawTabLine(activeTab, &ab, y);
+            // drawTree(&global.filetree, &ab, y);
         }
 
         // Draw file status bar
@@ -226,7 +231,7 @@ void update(void) {
     tab *activeTab = &global.tabs[global.activetab];
     int linelen;
     if (MARROW_LINE_NUMBERS) {
-        linelen = floor(log10(activeTab->screenrows + 1)) + 2;
+        linelen = floor(log10(activeTab->numrows + 1)) + 2;
         if (MARROW_GIT_GUTTERS)
             linelen++;
         activeTab->gutter = linelen + 2;

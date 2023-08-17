@@ -1,6 +1,8 @@
 #ifndef KEYBOARD_H
 #define KEYBOARD_H
 
+#include "../libs/buffer.h"
+
 #define CTRL_KEY(k) ((k)&0x1f)
 
 enum keys {
@@ -44,6 +46,6 @@ keypress *addKeystroke(int key, keypress *ptr, char associated);
 
 keypress *lastKeystroke(keypress *ptr);
 
-char *stringKeystroke(keypress *ptr);
+abuf stringKeystroke(keypress *ptr);
 
 #endif
