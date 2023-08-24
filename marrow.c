@@ -26,7 +26,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MARROW_VERSION "0.0.3"
+#define MARROW_VERSION "0.0.4"
 
 /*** prototypes ***/
 

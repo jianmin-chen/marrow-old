@@ -128,12 +128,12 @@ keypress *lastKeystroke(keypress *ptr) {
     return k; // Make sure to free this!
 }
 
-abuf stringKeystroke(keypress *ptr) {
+abuf stringKeystroke(keypress *ptr, int amt) {
     // Convert stack of keystrokes to string
     abuf ab = ABUF_INIT;
     keypress *curr = ptr;
     int i = 0;
-    while (curr != NULL) {
+    while (curr != NULL && i < amt) {
         int ndigits = floor(log10(curr->key));
         char *buf;
         int clen;
@@ -148,8 +148,8 @@ abuf stringKeystroke(keypress *ptr) {
         abAppend(&ab, buf, clen);
 
         curr = curr->next;
+        i++;
     }
 
     return ab;
 }
-

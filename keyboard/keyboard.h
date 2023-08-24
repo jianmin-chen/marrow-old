@@ -46,6 +46,6 @@ keypress *addKeystroke(int key, keypress *ptr, char associated);
 
 keypress *lastKeystroke(keypress *ptr);
 
-abuf stringKeystroke(keypress *ptr);
+abuf stringKeystroke(keypress *ptr, int amt);
 
 #endif

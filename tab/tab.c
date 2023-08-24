@@ -4,20 +4,20 @@
 #include "../libs/buffer.h"
 #include "../libs/re.h"
 #include "../modes.h"
+#include "../plugins/gitgutter.h"
 #include "../status/error.h"
 #include "../status/status.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
+#include <stddef.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-
-/*** defines ***/
 
 typedef struct row {
     int idx;
@@ -53,7 +53,6 @@ typedef struct tab {
 
 void tabUpdateRow(tab *t, row *r);
 void dirty(tab *t);
-void tabBackup(tab *t);
 char *tabPrompt(tab *t, char *prompt, void (*render)(void),
                 int (*callback)(tab *t, char *, int), int onchange);
 int tabEditMode(tab *t, int key, void (*render)(void));
@@ -435,14 +434,6 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     if (!fptr)
         die("fopen");
 
-    // Get `git diff` for file if enabled
-    /*
-    if (MARROW_GIT_GUTTERS) {
-        int lines[1];
-        int linesChanged = gitdiff(filename, );
-    }
-    */
-
     char *line = NULL;
     size_t linecap = 0;
     ssize_t linelen;
@@ -452,6 +443,20 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
             linelen--;
         tabInsertRow(&new, new.numrows, line, linelen);
     }
+
+    /*
+    // Get `git diff` for file if enabled
+    if (MARROW_GIT_GUTTERS) {
+        size_t bufsize = 8;
+        int *changed = malloc(bufsize);
+        int changedlines = gitdiff(filename, changed, bufsize);
+        for (int line = 0; line < changedlines; line++) {
+            printf("%i", changed[line]);
+        }
+        free(changed);
+        exit(1);
+    }
+    */
 
     free(line);
     fclose(fptr);
@@ -477,15 +482,7 @@ char *tabRowsToString(tab *t, int *buflen) {
     return buf;
 }
 
-void dirty(tab *t) {
-    t->dirty++;
-    if (t->dirty % 10 == 0) {
-        // Every five changes save
-        tabBackup(t);
-    }
-}
-
-void tabSave(tab *t) {
+void tabSave(tab *t, int notify) {
     if (t->filename) {
         // Save to filename
         int len;
@@ -498,26 +495,38 @@ void tabSave(tab *t) {
                     close(fd);
                     free(buf);
                     t->dirty = 0;
-                    setStatusMessage(t->bar, "%d bytes written to disk", len);
+                    if (notify) setStatusMessage(t->bar, "%d bytes written to disk", len);
                     return;
                 }
             }
             close(fd);
         }
         free(buf);
-        setStatusMessage(t->bar, "Can't save! I/O error: %s", strerror(errno));
+        if (notify) setStatusMessage(t->bar, "Can't save! I/O error: %s", strerror(errno));
     }
 }
 
 void tabBackup(tab *t) {
-    FILE *fptr = fopen(t->swp, "w");
+    FILE *fptr = fopen(t->swp, "a");
     if (fptr == NULL)
         die("fopen");
-    abuf output = stringKeystroke(t->keystrokes);
+    abuf output = stringKeystroke(t->keystrokes, 10);
     for (int i = 0; i < output.len; i++) {
         fprintf(fptr, "%c", output.b[i]);
     }
     fclose(fptr);
+}
+
+void dirty(tab *t) {
+    t->dirty++;
+    if (t->dirty % 10 == 0) {
+        // Every five changes save
+        tabBackup(t);
+        if (MARROW_AUTO_BACKUP) {
+            // Also autobackup to file
+            tabSave(t, 0);
+        }
+    }
 }
 
 void tabScroll(tab *t) {
@@ -713,6 +722,7 @@ void tabJumpTo(tab *t, int line) {
     else if (line > t->numrows)
         line = t->numrows;
     t->cy = line - 1;
+    t->cx = 0;
 }
 
 int tabCenter(tab *t, char *buf, int key) {
@@ -762,7 +772,7 @@ int tabCommand(tab *t, char *buf, int key) {
         while (buf[i]) {
             char c = buf[i];
             if (c == 'w') {
-                tabSave(t);
+                tabSave(t, 1);
             } else if (c == 'q') {
                 write(STDOUT_FILENO, "\x1b[2J", 4);
                 write(STDOUT_FILENO, "\x1b[H", 3);
@@ -930,7 +940,7 @@ void tabUndo(tab *t) {
 int tabNormalMode(tab *t, int key, void (*render)(void)) {
     switch (key) {
     case CTRL_KEY('s'):
-        tabSave(t);
+        tabSave(t, 1);
         break;
     case DOLLAR:
         t->cx = t->rows[t->cy].size;
@@ -996,7 +1006,7 @@ int tabEditMode(tab *t, int key, void (*render)(void)) {
         setStatusMessage(t->bar, "Switching to NORMAL");
         return NORMAL;
     case CTRL_KEY('s'):
-        tabSave(t);
+        tabSave(t, 1);
         return EDIT;
     case HOME_KEY:
         t->cx = 0;

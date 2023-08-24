@@ -1,5 +1,7 @@
 ## TODO
 
+- [ ] Fix "inconsistent use of spaces and tabs" according to Python
+
 - [ ] `u` and `r` keystroke
 
 - [ ] Get Git gutters working
@@ -14,6 +16,10 @@
 - [ ] Be able to move around and open files through the tree view
 
 - [ ] Get tab system working, `;` and Ctrl+number to move between tabs
+
+- [ ] Deal with file being edited outside of Marrow
+
+- [ ] Calculate other closing symbol
 
 ## About
 
@@ -46,6 +52,14 @@ These are all features I use in Vim/VSCode on a daily basis and thought would be
 ## Compatibility
 
 Want to try this out? Great. I've only run this on my Macbook and Ubuntu on an EC2 instance. On Windows, definitely sure this can't run, although I might patch issues in the future if I ever need to work on Windows.
+
+On Linux, you'll probably need `libcurl-dev`:
+
+```
+sudo apt-get install libcurl-dev
+```
+
+Which will prompt you to install it from a specific venue.
 
 ## Wait, so are you actually using this?
 

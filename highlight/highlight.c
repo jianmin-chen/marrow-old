@@ -50,12 +50,12 @@ char *ARSON_keywords[] = {"burn", "for",  "through", "while", "prepmatch",
 
 char *C_extensions[] = {".c", ".h", ".cpp", NULL};
 char *C_keywords[] = {
-    "#define",  "#include", "auto",      "break",  "case",   "const",
-    "continue", "default",  "do",        "else",   "extern", "for",
-    "goto",     "if",       "register",  "return", "sizeof", "static",
-    "switch",   "typedef",  "volatile",  "while",  "char|",  "double|",
-    "enum|",    "float|",   "int|",      "long|",  "short|", "signed|",
-    "struct|",  "union|",   "unsigned|", "void|",  NULL};
+    "#define",  "#include", "auto",     "break",     "case",   "const",
+    "continue", "default",  "do",       "else",      "extern", "for",
+    "goto",     "if",       "register", "return",    "sizeof", "static",
+    "switch",   "typedef",  "volatile", "while",     "char|",  "double|",
+    "enum|",    "float|",   "int|",     "long|",     "NULL|",  "short|",
+    "signed|",  "struct|",  "union|",   "unsigned|", "void|",  NULL};
 
 char *CSS_extensions[] = {".css", ".scss", NULL};
 char *CSS_keywords[] = {"accent-color", "acos", "abs|"};
@@ -65,27 +65,27 @@ char *HTML_keywords[] = {NULL};
 
 char *JS_extensions[] = {".js", ".ts", ".cjs", ".mjs", NULL};
 char *JS_keywords[] = {
-    "await",   "async",      "break",     "case",       "catch",      "class",
-    "const",   "continue",   "debugger",  "default",    "delete",     "do",
-    "else",    "enum",       "export",    "extends",    "finally",    "for",
-    "from",    "function",   "get",       "if",         "implements", "import",
-    "in",      "instanceof", "interface", "let",        "new",        "package",
-    "private", "protected",  "public",    "return",     "set",        "super",
-    "switch",  "static",     "this",      "throw",      "try",        "true",
-    "typeof",  "var",        "void",      "while",      "with",       "yield",
-    "false|",  "null|",      "true|",     "undefined|", NULL};
+    "await",   "async",      "break",      "case",    "catch",      "class",
+    "const",   "continue",   "debugger",   "default", "delete",     "do",
+    "else",    "enum",       "export",     "extends", "finally",    "for",
+    "from",    "function",   "get",        "if",      "implements", "import",
+    "in",      "instanceof", "interface",  "let",     "new",        "package",
+    "private", "protected",  "public",     "return",  "set",        "super",
+    "switch",  "static",     "this",       "throw",   "try",        "typeof",
+    "var",     "void",       "while",      "with",    "yield",      "false|",
+    "null|",   "true|",      "undefined|", NULL};
 
 char *PY_extensions[] = {".py", NULL};
 char *PY_keywords[] = {
-    "await",       "else",     "import",     "pass",    "break",  "except",
-    "in",          "raise",    "class",      "finally", "is",     "return",
-    "and",         "continue", "for",        "lambda",  "try",    "as",
-    "def",         "from",     "nonlocal",   "while",   "assert", "del",
-    "global",      "not",      "with",       "async",   "elif",   "if",
-    "or",          "yield",    "True|",      "False|",  "None|",  "str|",
-    "int|",        "float|",   "complex|",   "list|",   "tuple|", "range|",
-    "dict|",       "set|",     "frozenset|", "bool|",   "bytes|", "bytearray|",
-    "memoryview|", NULL};
+    "await",  "case",       "else",        "import", "pass",       "break",
+    "except", "in",         "raise",       "class",  "finally",    "is",
+    "return", "and",        "continue",    "for",    "lambda",     "match",
+    "try",    "as",         "def",         "from",   "nonlocal",   "while",
+    "assert", "del",        "global",      "not",    "with",       "async",
+    "elif",   "if",         "or",          "yield",  "True|",      "False|",
+    "None|",  "str|",       "int|",        "float|", "complex|",   "list|",
+    "tuple|", "range|",     "dict|",       "set|",   "frozenset|", "bool|",
+    "bytes|", "bytearray|", "memoryview|", NULL};
 
 char *RUST_extensions[] = {".rs", NULL};
 char *RUST_keywords[] = {
