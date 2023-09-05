@@ -18,8 +18,6 @@ Oops this project just keeps getting bigger and bigger
 - [ ] Extensible plugin system with Lua - 1 month
 - [ ] Test plugin system by rewriting code for line numbers and also Git gutters - 1 week
 
-= 2 months = end of October. Welcome to patience!
-
 ## About
 
 Text editor written from scratch based on the [Build](https://viewsourcecode.org/snaptoken/kilo/) Your Own Text Editor](https://viewsourcecode.org/snaptoken/kilo/) tutorial that I daily dogfood. Wanted to make it my own (in fact, this was written with `marrow`!), so I've added/am adding ~~some~~ a lot of extra, opinionated features. Libraries currently being used include:
