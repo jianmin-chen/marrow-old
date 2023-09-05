@@ -1,22 +1,19 @@
 #include "../config.h"
 #include "../highlight/highlight.h"
 #include "../keyboard/keyboard.h"
-#include "../libs/buffer.h"
 #include "../libs/re.h"
 #include "../modes.h"
-#include "../plugins/gitgutter.h"
 #include "../status/error.h"
 #include "../status/status.h"
+#include "../status/settings.h"
+#include "../window/window.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
-#include <stddef.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 
 typedef struct row {
@@ -53,9 +50,6 @@ typedef struct tab {
 
 void tabUpdateRow(tab *t, row *r);
 void dirty(tab *t);
-char *tabPrompt(tab *t, char *prompt, void (*render)(void),
-                int (*callback)(tab *t, char *, int), int onchange);
-int tabEditMode(tab *t, int key, void (*render)(void));
 int tabCenter(tab *t, char *buf, int key);
 
 /*** row operations ***/
@@ -65,7 +59,7 @@ int rowCxToRx(row *r, int cx) {
     int j;
     for (j = 0; j < cx; j++) {
         if (r->chars[j] == '\t')
-            rx += (MARROW_TAB_STOP - 1) - (rx % MARROW_TAB_STOP);
+            rx += (config.tabStop - 1) - (rx % config.tabStop);
         rx++;
     }
     return rx;
@@ -76,7 +70,7 @@ int rowRxToCx(row *r, int rx) {
     int cx;
     for (cx = 0; cx < r->size; cx++) {
         if (r->chars[cx] == '\t')
-            cur_rx += (MARROW_TAB_STOP - 1) - (cur_rx % MARROW_TAB_STOP);
+            cur_rx += (config.tabStop - 1) - (cur_rx % config.tabStop);
         cur_rx++;
         if (cur_rx > rx)
             return cx;
@@ -169,7 +163,7 @@ void tabUpdateSyntax(tab *t, row *r) {
 
         /* Strings */
 
-        if (t->syn->flags & HL_HIGHLIGHT_STRINGS) {
+        if (t->syn->flags & config.hlHighlightStrings) {
             if (in_string) {
                 r->hl[i] = HL_STRING;
                 if (c == '\\' && i + 1 < r->rsize) {
@@ -192,7 +186,7 @@ void tabUpdateSyntax(tab *t, row *r) {
 
         /* Numbers */
 
-        if (t->syn->flags & HL_HIGHLIGHT_NUMBERS) {
+        if (t->syn->flags & config.hlHighlightNumbers) {
             if (isdigit(c) && (prev_sep || prev_hl == HL_NUMBER)) {
                 r->hl[i] = HL_NUMBER;
                 i++;
@@ -249,13 +243,13 @@ void tabUpdateRow(tab *t, row *r) {
             tabs++;
 
     free(r->render);
-    r->render = malloc(r->size + tabs * (MARROW_TAB_STOP - 1) + 1);
+    r->render = malloc(r->size + tabs * (config.tabStop - 1) + 1);
 
     int idx = 0;
     for (j = 0; j < r->size; j++) {
         if (r->chars[j] == '\t') {
             r->render[idx++] = ' ';
-            while (idx % MARROW_TAB_STOP != 0)
+            while (idx % config.tabStop != 0)
                 r->render[idx++] = ' ';
         } else {
             r->render[idx++] = r->chars[j];
@@ -315,7 +309,7 @@ void tabInsertNewline(tab *t) {
     if (t->cx == 0) {
         tabInsertRow(t, t->cy, "", 0);
         t->cx = 0;
-        if (MARROW_GIT_GUTTERS)
+        if (config.gitGutters)
             t->rows[t->cy].changed = 1;
     } else {
         // Get number of tabs on current line and inject in
@@ -326,14 +320,14 @@ void tabInsertNewline(tab *t) {
         while (c[spaces] == ' ')
             spaces++;
 
-        // Now actually inject them in as a mix of tabs and spaces, depending on
-        // whether MARROW_TAB_STOP is defined
+        // TODO: Python & other indented languages require you to use one
+        // variant (tabs or spaces) so this needs to be fixed
         int size = r->size - t->cx;
         char *new;
-        if (MARROW_TAB_STOP) {
-            int tabs = spaces / MARROW_TAB_STOP;
+        if (config.tabStop) {
+            int tabs = spaces / config.tabStop;
             size += tabs;
-            spaces = spaces % MARROW_TAB_STOP;
+            spaces = spaces % config.tabStop;
             size += spaces;
             new = malloc(sizeof(char) * size);
             for (int i = 0; i < tabs; i++)
@@ -355,7 +349,7 @@ void tabInsertNewline(tab *t) {
         r = &t->rows[t->cy];
         r->size = t->cx;
         r->chars[r->size] = '\0';
-        if (MARROW_GIT_GUTTERS)
+        if (config.gitGutters)
             r->changed = 1;
         tabUpdateRow(t, r);
 
@@ -370,7 +364,7 @@ void tabInsertChar(tab *t, int c) {
     }
     tabRowInsertChar(t, &t->rows[t->cy], t->cx, c);
     t->cx++;
-    if (MARROW_GIT_GUTTERS) {
+    if (config.gitGutters) {
         // Mark as changed
         t->rows[t->cy].changed = 1;
     }
@@ -399,15 +393,17 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
     new.filename = strdup(filename);
     new.filetype = strrchr(filename, '.');
 
-    time_t t = time(NULL);
-    struct tm *time;
-    time = localtime(&t);
-    if (time == NULL)
-        die("localtime");
-    new.swp = malloc(sizeof(char) * (17 + strlen(filename)));
-    strftime(new.swp, 12, ".%Y-%m-%d-", time);
-    strcat(new.swp, new.filename);
-    strcat(new.swp, ".swp\0");
+    if (config.backup) {
+        time_t t = time(NULL);
+        struct tm *time;
+        time = localtime(&t);
+        if (time == NULL)
+            die("localtime");
+        new.swp = malloc(sizeof(char) * (17 + strlen(filename)));
+        strftime(new.swp, 12, ".%Y-%m-%d-", time);
+        strcat(new.swp, new.filename);
+        strcat(new.swp, ".swp\0");
+    }
 
     new.syn = selectSyntaxHighlight(new.filename, new.filetype);
     new.keystrokes = NULL;
@@ -443,20 +439,6 @@ tab tabOpen(char *filename, int screenrows, int screencols, status *s) {
             linelen--;
         tabInsertRow(&new, new.numrows, line, linelen);
     }
-
-    /*
-    // Get `git diff` for file if enabled
-    if (MARROW_GIT_GUTTERS) {
-        size_t bufsize = 8;
-        int *changed = malloc(bufsize);
-        int changedlines = gitdiff(filename, changed, bufsize);
-        for (int line = 0; line < changedlines; line++) {
-            printf("%i", changed[line]);
-        }
-        free(changed);
-        exit(1);
-    }
-    */
 
     free(line);
     fclose(fptr);
@@ -495,14 +477,18 @@ void tabSave(tab *t, int notify) {
                     close(fd);
                     free(buf);
                     t->dirty = 0;
-                    if (notify) setStatusMessage(t->bar, "%d bytes written to disk", len);
+                    if (notify)
+                        setStatusMessage(t->bar, "%d bytes written to disk",
+                                         len);
                     return;
                 }
             }
             close(fd);
         }
         free(buf);
-        if (notify) setStatusMessage(t->bar, "Can't save! I/O error: %s", strerror(errno));
+        if (notify)
+            setStatusMessage(t->bar, "Can't save! I/O error: %s",
+                             strerror(errno));
     }
 }
 
@@ -522,7 +508,7 @@ void dirty(tab *t) {
     if (t->dirty % 10 == 0) {
         // Every five changes save
         tabBackup(t);
-        if (MARROW_AUTO_BACKUP) {
+        if (config.autoBackup) {
             // Also autobackup to file
             tabSave(t, 0);
         }
@@ -534,7 +520,7 @@ void tabScroll(tab *t) {
     if (t->cy < t->numrows)
         t->rx = rowCxToRx(&t->rows[t->cy], t->cx);
 
-    if (MARROW_CENTER)
+    if (config.center)
         tabCenter(t, "z", 0);
     else if (t->cy < t->rowoff)
         t->rowoff = t->cy;
@@ -570,12 +556,12 @@ void drawTabLine(tab *t, abuf *ab, int y) {
     int linelen = t->gutter - 1;
     int padding = 0;
 
-    if (MARROW_GIT_GUTTERS && t->rows[filerow].changed) {
-        abAppend(ab, "~ ", 2);
+    if (config.gitGutters && t->rows[filerow].changed) {
+        abAppend(ab, "~", 2);
         padding += 2;
     }
 
-    if (MARROW_LINE_NUMBERS) {
+    if (config.lineNumbers) {
         // Line numbers in gutter
         int ndigits = floor(log10(filerow + 1)) + 2;
         char buf[ndigits + 1];
@@ -749,7 +735,7 @@ int tabCommand(tab *t, char *buf, int key) {
     int jump = 1;
     for (unsigned long i = 0; i < strlen(buf); i++) {
         if (!isdigit(buf[i])) {
-            jump = -1;
+            jump--;
             break;
         }
     }
@@ -757,10 +743,9 @@ int tabCommand(tab *t, char *buf, int key) {
     if (jump == 1) {
         tabJumpTo(t, atoi(buf));
     } else {
-        // TODO
         unsigned int i = 0;
 
-        if (strncmp(buf, "settheme ", 9) == 0 && strlen(buf) > 10) {
+        if (strncmp(buf, "settheme", 9) == 0 && strlen(buf) > 10) {
             char *theme = malloc(strlen(buf) - 9);
             for (unsigned int j = 9; j < strlen(buf); j++) {
                 theme[j - 9] = buf[j];
@@ -776,11 +761,13 @@ int tabCommand(tab *t, char *buf, int key) {
             } else if (c == 'q') {
                 write(STDOUT_FILENO, "\x1b[2J", 4);
                 write(STDOUT_FILENO, "\x1b[H", 3);
+                disableRawMode();
                 exit(0);
             }
             i++;
         }
     }
+
     return 0;
 }
 

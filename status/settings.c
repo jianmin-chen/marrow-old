@@ -1,32 +1,35 @@
+#include "../config.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "../config.h"
-
-extern char **environ;
 
 typedef struct settings {
-    int hl_highlight_numbers;
-    int hl_highlight_strings;
-    char *hl_highlight_location;
+    int hlHighlightNumbers;
+    int hlHighlightStrings;
+    char *hlHighlightLocation;
 
-    int tab_stop;
-    int quit_times;
-    int line_numbers;
-    int git_gutters;
+    int autoBackup;
+    int backup;
     int center;
-    int soft_wrap;
+    int gitGutters;
+    int lineNumbers;
+    int softWrap;
+    int tabStop;
 } settings;
 
-settings initSettings() {
+char **environ;
+settings config;
+
+settings initSettings(void) {
     settings s;
-    s.hl_highlight_numbers = HL_HIGHLIGHT_NUMBERS;
-    s.hl_highlight_strings = HL_HIGHLIGHT_STRINGS;
-    s.hl_highlight_location = HL_HIGHLIGHT_LOCATION;
-    s.tab_stop = MARROW_TAB_STOP;
-    s.quit_times = MARROW_QUIT_TIMES;
-    s.line_numbers = MARROW_LINE_NUMBERS;
-    s.git_gutters = MARROW_GIT_GUTTERS;
+    s.hlHighlightNumbers = HL_HIGHLIGHT_NUMBERS;
+    s.hlHighlightStrings = HL_HIGHLIGHT_STRINGS;
+    s.hlHighlightLocation = HL_HIGHLIGHT_LOCATION;
+    s.autoBackup = MARROW_AUTO_BACKUP;
+    s.backup = MARROW_BACKUP;
     s.center = MARROW_CENTER;
-    s.soft_wrap = MARROW_SOFT_WRAP;
+    s.gitGutters = MARROW_GIT_GUTTERS;
+    s.lineNumbers = MARROW_LINE_NUMBERS;
+    s.softWrap = MARROW_SOFT_WRAP;
+    s.tabStop = MARROW_TAB_STOP;
     return s;
 }

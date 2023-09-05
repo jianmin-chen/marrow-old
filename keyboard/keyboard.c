@@ -1,10 +1,10 @@
-#include "../status/error.h"
 #include "../libs/buffer.h"
+#include "../status/error.h"
 #include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #define CTRL_KEY(k) ((k)&0x1f)
 
@@ -107,16 +107,21 @@ int editorReadKey(void) {
 }
 
 // Storing keypresses in a stack
+
 typedef struct keypress {
-    char associated;
-    int key;
-    struct keypress *next;
+    char *associated;      // Associated characters
+    int row, col;          // Row and column position before moving
+    int key;               // Key pressed
+    struct keypress *next; // Pointer to next keypress
 } keypress;
 
-keypress *addKeystroke(int key, keypress *ptr, char associated) {
+keypress *addKeystroke(int key, keypress *ptr, int row, int col,
+                       char *associated) {
     keypress *k = malloc(sizeof(keypress));
     k->key = key;
     k->next = ptr;
+    k->row = row;
+    k->col = col;
     k->associated = associated;
     return k;
 }
@@ -125,7 +130,7 @@ keypress *lastKeystroke(keypress *ptr) {
     // Get last keystroke and then remove from stack
     keypress *k = ptr;
     ptr = ptr->next;
-    return k; // Make sure to free this!
+    return k;
 }
 
 abuf stringKeystroke(keypress *ptr, int amt) {

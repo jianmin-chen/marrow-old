@@ -42,8 +42,6 @@ void tabScroll(tab *t);
 
 void tabUpdateRow(tab *t, row *r);
 
-void tabInsertRow(tab t, int at, char *s, size_t len);
-
 void tabFreeRow(row *r);
 
 tab tabOpen(char *filename, int screenrows, int screencols, status *s);
@@ -59,4 +57,3 @@ int tabNormalMode(tab *t, int key, void (*render)(void));
 int tabEditMode(tab *t, int key, void (*render)(void));
 
 #endif
-

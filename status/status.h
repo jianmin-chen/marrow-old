@@ -17,4 +17,3 @@ char *statusPrompt(status *s, char *prompt, void (*render)(void),
 void drawStatusBar(status *s, abuf *ab, int screencols);
 
 #endif
-

@@ -505,4 +505,3 @@ static int matchpattern(regex_t *pattern, const char *text, int *matchlength) {
 }
 
 #endif
-

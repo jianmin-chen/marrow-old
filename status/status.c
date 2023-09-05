@@ -1,4 +1,3 @@
-#include "../highlight/highlight.h"
 #include "../keyboard/keyboard.h"
 #include "../libs/buffer.h"
 #include <ctype.h>
@@ -68,4 +67,3 @@ void drawStatusBar(status *s, abuf *ab, int screencols) {
     if (msglen && time(NULL) - s->statusmsg_time < 5)
         abAppend(ab, s->statusmsg, msglen);
 }
-

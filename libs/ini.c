@@ -292,4 +292,3 @@ int ini_parse_string(const char *string, ini_handler handler, void *user) {
     ctx.num_left = strlen(string);
     return ini_parse_stream((ini_reader)ini_reader_string, &ctx, handler, user);
 }
-

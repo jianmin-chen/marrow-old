@@ -175,4 +175,3 @@ INI_API int ini_parse_string(const char *string, ini_handler handler,
 #endif
 
 #endif /* INI_H */
-

@@ -58,4 +58,3 @@ int re_match(const char *pattern, const char *text, int *matchlength);
 #endif
 
 #endif /* ifndef _TINY_REGEX_C */
-
